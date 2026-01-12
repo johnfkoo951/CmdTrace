@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-APP_NAME="Agent Archives"
-BUNDLE_ID="com.agentarchives.native"
+APP_NAME="CmdTrace"
+BUNDLE_ID="com.cmdspace.cmdtrace"
 VERSION="2.0.0-alpha"
 
 BUILD_DIR="$(dirname "$0")/build"
@@ -53,10 +53,10 @@ cat > "$CONTENTS_DIR/Info.plist" << EOF
     <array>
         <dict>
             <key>CFBundleURLName</key>
-            <string>Agent Archives Session</string>
+            <string>CmdTrace Session</string>
             <key>CFBundleURLSchemes</key>
             <array>
-                <string>agentarchives</string>
+                <string>cmdtrace</string>
             </array>
         </dict>
     </array>
