@@ -1410,6 +1410,7 @@ struct DashboardView: View {
                 
                 if appState.selectedCLI == .claude {
                     UsageSection(usageData: $usageData, isLoading: $isLoadingUsage)
+                    UsageToolsSection()
                 }
             }
             .padding()
@@ -1579,7 +1580,7 @@ struct StatCard: View {
     let value: String
     let icon: String
     let color: Color
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -1588,10 +1589,10 @@ struct StatCard: View {
                     .foregroundStyle(color)
                 Spacer()
             }
-            
+
             Text(value)
                 .font(.system(size: 28, weight: .bold, design: .rounded))
-            
+
             Text(title)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
@@ -1600,6 +1601,185 @@ struct StatCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.regularMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+// MARK: - Usage Tools Section
+struct UsageToolsSection: View {
+    @State private var copiedCommand: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("사용량 분석 도구")
+                    .font(.headline)
+                Spacer()
+                Link(destination: URL(string: "https://github.com/ryoppippi/ccusage")!) {
+                    Image(systemName: "link")
+                        .font(.caption)
+                }
+            }
+
+            HStack(alignment: .top, spacing: 16) {
+                // ccusage Card
+                UsageToolCard(
+                    name: "ccusage",
+                    description: "가볍고 빠른 CLI 보고서 도구",
+                    language: "Node.js",
+                    languageColor: .green,
+                    commands: [
+                        ("설치/실행", "npx ccusage@latest"),
+                        ("일일 리포트", "npx ccusage daily"),
+                        ("월간 리포트", "npx ccusage monthly"),
+                        ("5시간 블록", "npx ccusage blocks"),
+                        ("모델별 분석", "npx ccusage daily --breakdown")
+                    ],
+                    githubURL: "https://github.com/ryoppippi/ccusage",
+                    copiedCommand: $copiedCommand
+                )
+
+                // claude-monitor Card
+                UsageToolCard(
+                    name: "claude-monitor",
+                    description: "실시간 모니터링 + ML 예측",
+                    language: "Python",
+                    languageColor: .blue,
+                    commands: [
+                        ("설치 (uv)", "uv tool install claude-monitor"),
+                        ("설치 (pip)", "pip install claude-monitor"),
+                        ("실행", "claude-monitor"),
+                        ("Pro 플랜", "claude-monitor --plan pro"),
+                        ("Max5 플랜", "claude-monitor --plan max5")
+                    ],
+                    githubURL: "https://github.com/Maciek-roboblog/Claude-Code-Usage-Monitor",
+                    copiedCommand: $copiedCommand
+                )
+            }
+
+            // Quick Reference
+            GroupBox {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("플랜별 토큰 한도")
+                        .font(.caption.bold())
+
+                    HStack(spacing: 24) {
+                        PlanBadge(name: "Pro", tokens: "19K", cost: "$18")
+                        PlanBadge(name: "Max5", tokens: "88K", cost: "$35")
+                        PlanBadge(name: "Max20", tokens: "220K", cost: "$140")
+                    }
+
+                    Divider()
+
+                    Text("5시간 롤링 세션 윈도우 - 첫 메시지 전송 시 세션 시작, 5시간 후 만료")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding()
+        .background(.regularMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+struct UsageToolCard: View {
+    let name: String
+    let description: String
+    let language: String
+    let languageColor: Color
+    let commands: [(label: String, command: String)]
+    let githubURL: String
+    @Binding var copiedCommand: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(name)
+                    .font(.subheadline.bold())
+
+                Text(language)
+                    .font(.caption2)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(languageColor.opacity(0.2))
+                    .foregroundStyle(languageColor)
+                    .clipShape(Capsule())
+
+                Spacer()
+
+                Link(destination: URL(string: githubURL)!) {
+                    Image(systemName: "arrow.up.right.square")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Text(description)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            VStack(spacing: 6) {
+                ForEach(commands, id: \.command) { item in
+                    HStack(spacing: 8) {
+                        Text(item.label)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .frame(width: 70, alignment: .leading)
+
+                        Text(item.command)
+                            .font(.system(size: 10, design: .monospaced))
+                            .lineLimit(1)
+
+                        Spacer()
+
+                        Button {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(item.command, forType: .string)
+                            copiedCommand = item.command
+
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                                if copiedCommand == item.command {
+                                    copiedCommand = nil
+                                }
+                            }
+                        } label: {
+                            Image(systemName: copiedCommand == item.command ? "checkmark" : "doc.on.doc")
+                                .font(.caption2)
+                                .foregroundStyle(copiedCommand == item.command ? .green : .secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(.quaternary.opacity(0.5))
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                }
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.background)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+struct PlanBadge: View {
+    let name: String
+    let tokens: String
+    let cost: String
+
+    var body: some View {
+        VStack(spacing: 2) {
+            Text(name)
+                .font(.caption.bold())
+            Text(tokens)
+                .font(.caption2)
+                .foregroundStyle(.blue)
+            Text(cost)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .frame(width: 60)
     }
 }
 
