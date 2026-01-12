@@ -138,8 +138,19 @@ struct SessionSummary: Codable, Identifiable, Equatable {
     var summary: String
     var keyPoints: [String]
     var suggestedNextSteps: [String]
+    var tags: [String]
     var generatedAt: Date
     var provider: AIProvider
+
+    init(sessionId: String, summary: String, keyPoints: [String], suggestedNextSteps: [String], tags: [String] = [], generatedAt: Date, provider: AIProvider) {
+        self.sessionId = sessionId
+        self.summary = summary
+        self.keyPoints = keyPoints
+        self.suggestedNextSteps = suggestedNextSteps
+        self.tags = tags
+        self.generatedAt = generatedAt
+        self.provider = provider
+    }
 }
 
 // MARK: - AppState

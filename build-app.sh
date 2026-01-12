@@ -19,6 +19,11 @@ swift build -c release
 
 cp .build/release/CmdTrace "$MACOS_DIR/$APP_NAME"
 
+# Copy app icon
+if [ -f "Resources/AppIcon.icns" ]; then
+    cp Resources/AppIcon.icns "$RESOURCES_DIR/"
+fi
+
 cat > "$CONTENTS_DIR/Info.plist" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

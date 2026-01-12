@@ -178,25 +178,33 @@ struct SessionHeader: View {
                     }
                     .help("Download")
                     
-                    if appState.selectedCLI == .claude {
+                    // Resume 버튼 - Claude Code, OpenCode, Antigravity 지원
+                    if appState.selectedCLI == .claude || appState.selectedCLI == .opencode || appState.selectedCLI == .antigravity {
                         Menu {
                             Section("Terminal") {
                                 Button("Open") { executeResume(.terminal, bypass: false) }
-                                Button("Bypass") { executeResume(.terminal, bypass: true) }
+                                if appState.selectedCLI == .claude {
+                                    Button("Bypass") { executeResume(.terminal, bypass: true) }
+                                }
                             }
                             Section("iTerm2") {
                                 Button("Open") { executeResume(.iterm, bypass: false) }
-                                Button("Bypass") { executeResume(.iterm, bypass: true) }
+                                if appState.selectedCLI == .claude {
+                                    Button("Bypass") { executeResume(.iterm, bypass: true) }
+                                }
                             }
                             Section("Warp") {
                                 Button("Open") { executeResume(.warp, bypass: false) }
-                                Button("Bypass") { executeResume(.warp, bypass: true) }
+                                if appState.selectedCLI == .claude {
+                                    Button("Bypass") { executeResume(.warp, bypass: true) }
+                                }
                             }
                         } label: {
                             Image(systemName: "play.circle")
                                 .font(.system(size: 12))
                                 .frame(width: 28, height: 28)
                         }
+                        .menuStyle(.borderlessButton)
                         .buttonStyle(.bordered)
                         .help("Resume")
                     }
@@ -218,49 +226,99 @@ struct SessionHeader: View {
     }
     
     private func executeResume(_ terminal: TerminalType, bypass: Bool) {
-        let command = bypass ? "claude --resume \(session.id) --dangerously-skip-permissions" : "claude --resume \(session.id)"
-        
-        var script: String
-        switch terminal {
-        case .terminal:
-            script = """
-            tell application "Terminal"
-                activate
-                do script "\(command)"
-            end tell
-            """
-        case .iterm:
-            script = """
-            tell application "iTerm2"
-                activate
-                create window with default profile
-                tell current session of current window
-                    write text "\(command)"
-                end tell
-            end tell
-            """
-        case .warp:
-            let escapedCommand = command.replacingOccurrences(of: "\"", with: "\\\"")
-            script = """
-            do shell script "open -a Warp"
-            delay 1
-            tell application "System Events"
-                tell process "Warp"
-                    keystroke "t" using command down
-                    delay 0.5
-                    keystroke "\(escapedCommand)"
-                    delay 0.1
-                    key code 36
-                end tell
-            end tell
-            """
+        let projectPath = session.project
+
+        // CLI별로 다른 명령어 생성
+        let resumeCommand: String
+        switch appState.selectedCLI {
+        case .claude:
+            resumeCommand = bypass
+                ? "claude -r \(session.id) --dangerously-skip-permissions"
+                : "claude -r \(session.id)"
+        case .opencode:
+            resumeCommand = "opencode -s \(session.id)"
+        case .antigravity:
+            resumeCommand = "antigravity --resume \(session.id)"
         }
-        
+
         DispatchQueue.global(qos: .userInitiated).async {
-            var error: NSDictionary?
-            if let scriptObject = NSAppleScript(source: script) {
-                scriptObject.executeAndReturnError(&error)
+            switch terminal {
+            case .terminal:
+                // osascript -e 방식 사용 (bash 스크립트와 동일)
+                let script = """
+                tell application "Terminal"
+                    activate
+                    do script "cd '\(projectPath)' && \(resumeCommand)"
+                end tell
+                """
+                self.runOsascript(script)
+
+            case .iterm:
+                let script = """
+                tell application "iTerm2"
+                    activate
+                    set newWindow to (create window with default profile)
+                    tell current session of newWindow
+                        write text "cd '\(projectPath)' && \(resumeCommand)"
+                    end tell
+                end tell
+                """
+                self.runOsascript(script)
+
+            case .warp:
+                // Warp: 명령어만 복사 (cd 없이! Warp가 해당 디렉토리에서 열림)
+                DispatchQueue.main.async {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(resumeCommand, forType: .string)
+                }
+
+                // open -a Warp "path" - Warp가 해당 디렉토리에서 바로 열림
+                let openProcess = Process()
+                openProcess.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+                openProcess.arguments = ["-a", "Warp", projectPath]
+                try? openProcess.run()
+                openProcess.waitUntilExit()
+
+                // 잠시 대기 후 붙여넣기 실행
+                Thread.sleep(forTimeInterval: 0.5)
+
+                let pasteScript = """
+                tell application "System Events"
+                    tell process "Warp"
+                        set frontmost to true
+                        delay 1.0
+                        keystroke "v" using command down
+                        delay 0.2
+                        key code 36
+                    end tell
+                end tell
+                """
+                self.runOsascript(pasteScript)
             }
+        }
+    }
+
+    /// osascript 명령으로 AppleScript 실행
+    private func runOsascript(_ script: String) {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        process.arguments = ["-e", script]
+
+        let pipe = Pipe()
+        process.standardError = pipe
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+
+            if process.terminationStatus != 0 {
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                if let errorOutput = String(data: data, encoding: .utf8) {
+                    print("osascript error: \(errorOutput)")
+                }
+            }
+        } catch {
+            print("Failed to run osascript: \(error)")
         }
     }
     
@@ -349,25 +407,29 @@ struct SessionHeader: View {
         }.joined(separator: "\n\n")
         
         let prompt = """
-        Based on this coding session conversation, generate:
-        1. A concise title (5-10 words, descriptive of the main task/topic)
-        2. A brief summary (2-3 sentences)
-        
-        Project: \(session.projectName)
-        
-        Conversation:
+        이 코딩 세션 대화를 분석하여 다음을 생성해주세요:
+
+        1. 타이틀: 핵심 작업/주제를 담은 간결한 제목 (한국어, 10-20자)
+        2. 컨텍스트 요약: 다음 내용을 포함 (한국어, 2-3문장)
+           - 무슨 작업을 했는지
+           - 어디까지 진행됐는지
+           - 다음에 이어서 할 때 참고할 핵심 맥락
+
+        프로젝트: \(session.projectName)
+
+        대화 내용:
         \(conversationText)
-        
-        Respond in JSON format:
+
+        JSON 형식으로 응답:
         {"title": "...", "summary": "..."}
         """
         
         let requestBody: [String: Any] = [
             "model": "claude-3-haiku-20240307",
-            "max_tokens": 256,
+            "max_tokens": 512,
             "messages": [["role": "user", "content": prompt]]
         ]
-        
+
         guard let url = URL(string: "https://api.anthropic.com/v1/messages"),
               let jsonData = try? JSONSerialization.data(withJSONObject: requestBody) else { return }
         
@@ -486,49 +548,86 @@ struct SectionHeader: View {
 }
 
 private func executeResumeInspector(_ session: Session, terminal: TerminalType, bypass: Bool) {
-    let command = bypass ? "claude --resume \(session.id) --dangerously-skip-permissions" : "claude --resume \(session.id)"
-    
-    var script: String
-    switch terminal {
-    case .terminal:
-        script = """
-        tell application "Terminal"
-            activate
-            do script "\(command)"
-        end tell
-        """
-    case .iterm:
-        script = """
-        tell application "iTerm2"
-            activate
-            create window with default profile
-            tell current session of current window
-                write text "\(command)"
-            end tell
-        end tell
-        """
-    case .warp:
-        let escapedCommand = command.replacingOccurrences(of: "\"", with: "\\\"")
-        script = """
-        do shell script "open -a Warp"
-        delay 1
-        tell application "System Events"
-            tell process "Warp"
-                keystroke "t" using command down
-                delay 0.5
-                keystroke "\(escapedCommand)"
-                delay 0.1
-                key code 36
-            end tell
-        end tell
-        """
-    }
-    
+    let projectPath = session.project
+    let resumeCommand = bypass
+        ? "claude -r \(session.id) --dangerously-skip-permissions"
+        : "claude -r \(session.id)"
+
     DispatchQueue.global(qos: .userInitiated).async {
-        var error: NSDictionary?
-        if let scriptObject = NSAppleScript(source: script) {
-            scriptObject.executeAndReturnError(&error)
+        switch terminal {
+        case .terminal:
+            let script = """
+            tell application "Terminal"
+                activate
+                do script "cd '\(projectPath)' && \(resumeCommand)"
+            end tell
+            """
+            runOsascriptGlobal(script)
+
+        case .iterm:
+            let script = """
+            tell application "iTerm2"
+                activate
+                set newWindow to (create window with default profile)
+                tell current session of newWindow
+                    write text "cd '\(projectPath)' && \(resumeCommand)"
+                end tell
+            end tell
+            """
+            runOsascriptGlobal(script)
+
+        case .warp:
+            // Warp: 명령어만 복사 (cd 없이! Warp가 해당 디렉토리에서 열림)
+            DispatchQueue.main.async {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(resumeCommand, forType: .string)
+            }
+
+            let openProcess = Process()
+            openProcess.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+            openProcess.arguments = ["-a", "Warp", projectPath]
+            try? openProcess.run()
+            openProcess.waitUntilExit()
+
+            Thread.sleep(forTimeInterval: 0.5)
+
+            let pasteScript = """
+            tell application "System Events"
+                tell process "Warp"
+                    set frontmost to true
+                    delay 1.0
+                    keystroke "v" using command down
+                    delay 0.2
+                    key code 36
+                end tell
+            end tell
+            """
+            runOsascriptGlobal(pasteScript)
         }
+    }
+}
+
+/// Global osascript runner (for use outside of view context)
+private func runOsascriptGlobal(_ script: String) {
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+    process.arguments = ["-e", script]
+
+    let pipe = Pipe()
+    process.standardError = pipe
+
+    do {
+        try process.run()
+        process.waitUntilExit()
+
+        if process.terminationStatus != 0 {
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            if let errorOutput = String(data: data, encoding: .utf8) {
+                print("osascript error (Inspector): \(errorOutput)")
+            }
+        }
+    } catch {
+        print("Failed to run osascript: \(error)")
     }
 }
 
@@ -602,24 +701,49 @@ struct InspectorPanel: View {
                 
                 Divider()
                 
-                SectionHeader("Context Summary")
+                SectionHeader("컨텍스트 요약")
                 VStack(alignment: .leading, spacing: 6) {
                     if let summary = appState.getSummary(for: session.id) {
-                        Text(summary.summary)
+                        MarkdownText(summary.summary)
                             .font(labelFont)
-                        
+
                         if !summary.keyPoints.isEmpty {
-                            Text("Key Points:")
+                            Text("핵심 포인트")
                                 .font(labelFont)
                                 .fontWeight(.medium)
                                 .padding(.top, 4)
                             ForEach(summary.keyPoints, id: \.self) { point in
-                                Text("• \(point)")
+                                MarkdownText(point)
                                     .font(smallFont)
                             }
                         }
-                        
-                        Text("Generated: \(summary.generatedAt.formatted())")
+
+                        if !summary.suggestedNextSteps.isEmpty {
+                            Text("다음 단계")
+                                .font(labelFont)
+                                .fontWeight(.medium)
+                                .padding(.top, 4)
+                            ForEach(summary.suggestedNextSteps, id: \.self) { step in
+                                MarkdownText("• \(step)")
+                                    .font(smallFont)
+                            }
+                        }
+
+                        if !summary.tags.isEmpty {
+                            HStack(spacing: 4) {
+                                ForEach(summary.tags, id: \.self) { tag in
+                                    Text(tag)
+                                        .font(.caption2)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Color.accentColor.opacity(0.15))
+                                        .clipShape(Capsule())
+                                }
+                            }
+                            .padding(.top, 4)
+                        }
+
+                        Text("생성: \(summary.generatedAt.formatted())")
                             .font(smallFont)
                             .foregroundStyle(.tertiary)
                             .padding(.top, 2)
@@ -646,13 +770,13 @@ struct InspectorPanel: View {
                         }
                         .padding(.top, 4)
                     } else {
-                        Text("No summary generated yet")
+                        Text("아직 요약이 생성되지 않았습니다")
                             .font(labelFont)
                             .foregroundStyle(.secondary)
                     }
-                    
+
                     if appState.settings.anthropicKey.isEmpty {
-                        Label("Set API key in Settings → AI", systemImage: "exclamationmark.triangle.fill")
+                        Label("설정 → AI에서 API 키를 입력하세요", systemImage: "exclamationmark.triangle.fill")
                             .font(smallFont)
                             .foregroundStyle(.orange)
                     }
@@ -879,16 +1003,30 @@ struct InspectorPanel: View {
         }.joined(separator: "\n\n")
         
         let prompt = """
-        Summarize this coding session conversation. Provide:
-        1. A brief summary (2-3 sentences)
-        2. Key points discussed (3-5 bullet points)
-        3. Suggested next steps (2-3 items)
-        
-        Conversation:
+        이 코딩 세션 대화를 분석하여 다음을 한국어로 생성해주세요.
+
+        **마크다운 포맷 필수 사용:**
+        - **굵은 글씨**로 핵심 키워드 강조
+        - 불렛포인트(-)로 목록 정리
+        - 위계 구조 활용 (들여쓰기)
+        - 관련 #태그 자유롭게 추가 (예: #버그수정 #SwiftUI #리팩토링)
+
+        1. 세션 요약 (2-3문장)
+           - 어떤 작업을 진행했는지
+           - 현재 진행 상황/완료 여부
+
+        2. 핵심 포인트 (3-5개)
+           - 주요 결정사항, 변경된 파일, 해결한 문제 등
+
+        3. 다음 단계 (2-3개)
+           - 이 세션을 이어서 작업할 때 해야 할 것들
+           - 미완료 작업이나 확인 필요한 사항
+
+        대화 내용:
         \(conversationText)
-        
-        Respond in JSON format:
-        {"summary": "...", "keyPoints": ["...", "..."], "nextSteps": ["...", "..."]}
+
+        JSON 형식으로 응답 (각 값에 마크다운 포맷 포함):
+        {"summary": "...", "keyPoints": ["- **키워드** 설명...", "..."], "nextSteps": ["...", "..."], "tags": ["#태그1", "#태그2"]}
         """
         
         let requestBody: [String: Any] = [
@@ -923,20 +1061,32 @@ struct InspectorPanel: View {
                     summary: response["summary"] as? String ?? "Summary generated",
                     keyPoints: response["keyPoints"] as? [String] ?? [],
                     suggestedNextSteps: response["nextSteps"] as? [String] ?? [],
+                    tags: response["tags"] as? [String] ?? [],
                     generatedAt: Date(),
                     provider: .anthropic
                 )
                 appState.saveSummary(summary)
-                
+
+                // 클립보드에 마크다운 포맷으로 복사
+                var clipboardText = "## 요약\n\(summary.summary)\n\n"
+                if !summary.keyPoints.isEmpty {
+                    clipboardText += "## 핵심 포인트\n" + summary.keyPoints.joined(separator: "\n") + "\n\n"
+                }
+                if !summary.suggestedNextSteps.isEmpty {
+                    clipboardText += "## 다음 단계\n" + summary.suggestedNextSteps.map { "- \($0)" }.joined(separator: "\n") + "\n\n"
+                }
+                if !summary.tags.isEmpty {
+                    clipboardText += "## 태그\n" + summary.tags.joined(separator: " ") + "\n"
+                }
                 NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(summary.summary, forType: .string)
+                NSPasteboard.general.setString(clipboardText, forType: .string)
             }
         } catch {
             let fallbackSummary = SessionSummary(
                 sessionId: session.id,
-                summary: "Session about \(session.displayTitle). Contains \(session.messageCount) messages.",
-                keyPoints: ["API call failed - using fallback summary"],
-                suggestedNextSteps: ["Check API key in Settings"],
+                summary: "\(session.displayTitle) 세션. 총 \(session.messageCount)개의 메시지 포함.",
+                keyPoints: ["API 호출 실패 - 기본 요약 사용"],
+                suggestedNextSteps: ["설정에서 API 키 확인"],
                 generatedAt: Date(),
                 provider: .anthropic
             )
@@ -1124,9 +1274,8 @@ struct MessageBubble: View {
                     }
                 }
                 
-                if appState.settings.renderMarkdown, let attributed = try? AttributedString(markdown: message.content, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) {
-                    Text(attributed)
-                        .font(.body)
+                if appState.settings.renderMarkdown {
+                    MarkdownText(message.content)
                         .textSelection(.enabled)
                         .padding(12)
                         .background(bubbleColor)
@@ -1652,6 +1801,254 @@ struct UsageData {
         } else {
             dailyUsage = []
         }
+    }
+}
+
+// MARK: - Markdown Text View
+struct MarkdownText: View {
+    let content: String
+
+    init(_ content: String) {
+        self.content = content
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(Array(parseBlocks().enumerated()), id: \.offset) { _, block in
+                switch block {
+                case .text(let text):
+                    if let attributed = try? AttributedString(markdown: text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) {
+                        Text(attributed)
+                            .font(.body)
+                    } else {
+                        Text(text)
+                            .font(.body)
+                    }
+                case .code(let code, let language):
+                    VStack(alignment: .leading, spacing: 4) {
+                        if !language.isEmpty {
+                            Text(language)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 8)
+                        }
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            Text(code)
+                                .font(.system(.caption, design: .monospaced))
+                                .textSelection(.enabled)
+                                .padding(10)
+                        }
+                        .background(Color(nsColor: .textBackgroundColor).opacity(0.5))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                case .heading(let text, let level):
+                    Text(text)
+                        .font(level == 1 ? .title2.bold() : level == 2 ? .title3.bold() : .headline)
+                        .padding(.top, level == 1 ? 8 : 4)
+                case .listItem(let text, let indent):
+                    HStack(alignment: .top, spacing: 6) {
+                        Text("•")
+                            .foregroundStyle(.secondary)
+                        if let attributed = try? AttributedString(markdown: text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) {
+                            Text(attributed)
+                                .font(.body)
+                        } else {
+                            Text(text)
+                                .font(.body)
+                        }
+                    }
+                    .padding(.leading, CGFloat(indent * 16))
+                case .quote(let text):
+                    HStack(spacing: 0) {
+                        Rectangle()
+                            .fill(.blue.opacity(0.5))
+                            .frame(width: 3)
+                        Text(text)
+                            .font(.body)
+                            .italic()
+                            .foregroundStyle(.secondary)
+                            .padding(.leading, 10)
+                    }
+                case .table(let rows, let headers):
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        VStack(alignment: .leading, spacing: 0) {
+                            // Header row
+                            if !headers.isEmpty {
+                                HStack(spacing: 0) {
+                                    ForEach(Array(headers.enumerated()), id: \.offset) { _, header in
+                                        Text(header)
+                                            .font(.caption.bold())
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 8)
+                                            .frame(minWidth: 80, alignment: .leading)
+                                            .background(Color(nsColor: .controlBackgroundColor))
+                                    }
+                                }
+                                Divider()
+                            }
+
+                            // Data rows
+                            ForEach(Array(rows.enumerated()), id: \.offset) { rowIndex, row in
+                                HStack(spacing: 0) {
+                                    ForEach(Array(row.enumerated()), id: \.offset) { _, cell in
+                                        Text(cell)
+                                            .font(.caption)
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 6)
+                                            .frame(minWidth: 80, alignment: .leading)
+                                    }
+                                }
+                                .background(rowIndex % 2 == 0 ? Color.clear : Color(nsColor: .controlBackgroundColor).opacity(0.3))
+                            }
+                        }
+                    }
+                    .background(Color(nsColor: .textBackgroundColor).opacity(0.3))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6)
+                            .stroke(Color(nsColor: .separatorColor), lineWidth: 0.5)
+                    )
+                }
+            }
+        }
+    }
+
+    private enum Block {
+        case text(String)
+        case code(String, String) // code, language
+        case heading(String, Int) // text, level
+        case listItem(String, Int) // text, indent level
+        case quote(String)
+        case table([[String]], [String]) // rows, headers
+    }
+
+    private func parseBlocks() -> [Block] {
+        var blocks: [Block] = []
+        let lines = content.components(separatedBy: "\n")
+        var i = 0
+
+        while i < lines.count {
+            let line = lines[i]
+
+            // Code block
+            if line.hasPrefix("```") {
+                let language = String(line.dropFirst(3)).trimmingCharacters(in: .whitespaces)
+                var codeLines: [String] = []
+                i += 1
+                while i < lines.count && !lines[i].hasPrefix("```") {
+                    codeLines.append(lines[i])
+                    i += 1
+                }
+                blocks.append(.code(codeLines.joined(separator: "\n"), language))
+                i += 1
+                continue
+            }
+
+            // Heading
+            if line.hasPrefix("#") {
+                let level = line.prefix(while: { $0 == "#" }).count
+                let text = String(line.dropFirst(level)).trimmingCharacters(in: .whitespaces)
+                if level <= 6 && !text.isEmpty {
+                    blocks.append(.heading(text, level))
+                    i += 1
+                    continue
+                }
+            }
+
+            // List item
+            if line.trimmingCharacters(in: .whitespaces).hasPrefix("- ") ||
+               line.trimmingCharacters(in: .whitespaces).hasPrefix("* ") {
+                let indent = line.prefix(while: { $0 == " " || $0 == "\t" }).count / 2
+                let text = line.trimmingCharacters(in: .whitespaces).dropFirst(2).trimmingCharacters(in: .whitespaces)
+                blocks.append(.listItem(String(text), indent))
+                i += 1
+                continue
+            }
+
+            // Quote
+            if line.hasPrefix("> ") {
+                let text = String(line.dropFirst(2))
+                blocks.append(.quote(text))
+                i += 1
+                continue
+            }
+
+            // Table - lines starting with |
+            if line.trimmingCharacters(in: .whitespaces).hasPrefix("|") {
+                var tableLines: [String] = []
+                while i < lines.count && lines[i].trimmingCharacters(in: .whitespaces).hasPrefix("|") {
+                    tableLines.append(lines[i])
+                    i += 1
+                }
+
+                if tableLines.count >= 2 {
+                    // Parse header row
+                    let headers = parseTableRow(tableLines[0])
+
+                    // Skip separator row (|---|---|)
+                    var dataStartIndex = 1
+                    if tableLines.count > 1 && tableLines[1].contains("---") {
+                        dataStartIndex = 2
+                    }
+
+                    // Parse data rows
+                    var rows: [[String]] = []
+                    for j in dataStartIndex..<tableLines.count {
+                        let cells = parseTableRow(tableLines[j])
+                        if !cells.isEmpty {
+                            rows.append(cells)
+                        }
+                    }
+
+                    blocks.append(.table(rows, headers))
+                }
+                continue
+            }
+
+            // Regular text - accumulate consecutive non-special lines
+            var textLines: [String] = []
+            while i < lines.count {
+                let currentLine = lines[i]
+                if currentLine.hasPrefix("```") || currentLine.hasPrefix("#") ||
+                   currentLine.trimmingCharacters(in: .whitespaces).hasPrefix("- ") ||
+                   currentLine.trimmingCharacters(in: .whitespaces).hasPrefix("* ") ||
+                   currentLine.hasPrefix("> ") ||
+                   currentLine.trimmingCharacters(in: .whitespaces).hasPrefix("|") {
+                    break
+                }
+                textLines.append(currentLine)
+                i += 1
+            }
+
+            let text = textLines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+            if !text.isEmpty {
+                blocks.append(.text(text))
+            }
+        }
+
+        return blocks
+    }
+
+    private func parseTableRow(_ line: String) -> [String] {
+        var cells: [String] = []
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+
+        // Remove leading and trailing pipes
+        var content = trimmed
+        if content.hasPrefix("|") {
+            content = String(content.dropFirst())
+        }
+        if content.hasSuffix("|") {
+            content = String(content.dropLast())
+        }
+
+        // Split by | and trim each cell
+        let parts = content.components(separatedBy: "|")
+        for part in parts {
+            cells.append(part.trimmingCharacters(in: .whitespaces))
+        }
+
+        return cells
     }
 }
 
