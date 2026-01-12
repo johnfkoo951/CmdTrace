@@ -1,4 +1,5 @@
 import SwiftUI
+import Charts
 
 struct DetailView: View {
     @Environment(AppState.self) private var appState
@@ -1424,34 +1425,56 @@ struct DashboardView: View {
     
     private func loadUsageData() async {
         isLoadingUsage = true
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        task.arguments = ["python3", "-c", """
-        import json
-        try:
-            from ccusage import get_usage
-            usage = get_usage(days=14)
-            print(json.dumps(usage))
-        except:
-            print('{}')
-        """]
-        
-        let pipe = Pipe()
-        task.standardOutput = pipe
-        task.standardError = pipe
-        
-        do {
-            try task.run()
-            task.waitUntilExit()
-            
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            if let output = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
-               let jsonData = output.data(using: .utf8),
-               let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
-                usageData = UsageData(from: json)
+
+        // Run ccusage for daily, monthly, and blocks data
+        let result = await Task.detached(priority: .userInitiated) { () -> UsageData? in
+            let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
+
+            func runCcusage(_ command: String, outputFile: String) -> [String: Any]? {
+                let task = Process()
+                task.executableURL = URL(fileURLWithPath: "/bin/zsh")
+                let script = """
+                export NVM_DIR="$HOME/.nvm"
+                [ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
+                ccusage \(command) --json -o desc > "\(outputFile)" 2>&1
+                """
+                task.arguments = ["-c", script]
+                task.currentDirectoryURL = URL(fileURLWithPath: homeDir)
+
+                do {
+                    try task.run()
+                    let deadline = Date().addingTimeInterval(15)
+                    while task.isRunning && Date() < deadline {
+                        Thread.sleep(forTimeInterval: 0.1)
+                    }
+                    if task.isRunning {
+                        task.terminate()
+                        return nil
+                    }
+
+                    if let output = try? String(contentsOfFile: outputFile, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines),
+                       !output.isEmpty,
+                       let jsonData = output.data(using: .utf8),
+                       let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
+                        try? FileManager.default.removeItem(atPath: outputFile)
+                        return json
+                    }
+                } catch {}
+                return nil
             }
-        } catch {}
-        
+
+            // Load all three types of data
+            let dailyJson = runCcusage("daily", outputFile: "\(homeDir)/.cmdtrace-daily.json")
+            let monthlyJson = runCcusage("monthly", outputFile: "\(homeDir)/.cmdtrace-monthly.json")
+            let blocksJson = runCcusage("blocks", outputFile: "\(homeDir)/.cmdtrace-blocks.json")
+
+            if dailyJson != nil || monthlyJson != nil || blocksJson != nil {
+                return UsageData(dailyJson: dailyJson, monthlyJson: monthlyJson, blocksJson: blocksJson)
+            }
+            return nil
+        }.value
+
+        usageData = result
         isLoadingUsage = false
     }
     
@@ -1543,28 +1566,148 @@ struct DashboardInspectorPanel: View {
 struct UsageSection: View {
     @Binding var usageData: UsageData?
     @Binding var isLoading: Bool
-    
+    @State private var viewMode: UsageViewMode = .daily
+    @State private var showAll = false
+    @State private var selectedItemForBreakdown: String?
+    @State private var selectedPlan: ClaudePlan = .max20
+    @State private var showNativeMonitor = false
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("API Usage")
-                .font(.headline)
-            
-            if isLoading {
-                ProgressView()
-            } else if let data = usageData {
-                HStack(spacing: 16) {
-                    StatCard(title: "Cost", value: String(format: "$%.2f", data.totalCost), icon: "dollarsign.circle", color: .green)
-                    StatCard(title: "Input", value: formatTokens(data.inputTokens), icon: "arrow.down.circle", color: .blue)
-                    StatCard(title: "Output", value: formatTokens(data.outputTokens), icon: "arrow.up.circle", color: .purple)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("API Usage")
+                    .font(.headline)
+                Spacer()
+                if isLoading {
+                    ProgressView()
+                        .scaleEffect(0.7)
                 }
-            } else {
-                Text("Install ccusage for usage data")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                // claude-monitor menu
+                Menu {
+                    Section("플랜 선택") {
+                        ForEach(ClaudePlan.allCases, id: \.self) { plan in
+                            Button {
+                                selectedPlan = plan
+                            } label: {
+                                HStack {
+                                    Text(plan.displayName)
+                                    if selectedPlan == plan {
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Divider()
+                    Button {
+                        launchClaudeMonitor(plan: selectedPlan, view: "realtime")
+                    } label: {
+                        Label("실시간 모니터링", systemImage: "waveform.path.ecg")
+                    }
+                    Button {
+                        launchClaudeMonitor(plan: selectedPlan, view: "daily")
+                    } label: {
+                        Label("일일 리포트", systemImage: "calendar")
+                    }
+                    Button {
+                        launchClaudeMonitor(plan: selectedPlan, view: "monthly")
+                    } label: {
+                        Label("월간 리포트", systemImage: "calendar.badge.clock")
+                    }
+                    Button {
+                        launchClaudeMonitor(plan: selectedPlan, view: "session")
+                    } label: {
+                        Label("세션별 리포트", systemImage: "clock.arrow.circlepath")
+                    }
+                    Divider()
+                    Button {
+                        showNativeMonitor = true
+                    } label: {
+                        Label("내장 모니터링", systemImage: "gauge.with.dots.needle.bottom.50percent")
+                    }
+                } label: {
+                    Label("모니터링 (\(selectedPlan.shortName))", systemImage: "chart.line.uptrend.xyaxis")
+                        .font(.caption)
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+            }
+            .sheet(isPresented: $showNativeMonitor) {
+                NativeMonitorView(plan: selectedPlan)
+            }
+
+            if let data = usageData {
+                // Summary Cards
+                HStack(spacing: 12) {
+                    UsageStatCard(title: "총 비용", value: String(format: "$%.2f", data.totalCost), icon: "dollarsign.circle", color: .green)
+                    UsageStatCard(title: "총 토큰", value: formatTokens(data.totalTokens), icon: "number.circle", color: .blue)
+                    UsageStatCard(title: "캐시 히트", value: formatTokens(data.cacheReadTokens), icon: "bolt.circle", color: .orange)
+                }
+
+                // View Mode Picker
+                Picker("View", selection: $viewMode) {
+                    ForEach(UsageViewMode.allCases, id: \.self) { mode in
+                        Text(mode.rawValue).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                // Content based on mode
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text(viewMode.rawValue + " 사용량")
+                            .font(.subheadline.bold())
+                        Spacer()
+                        Button(showAll ? "접기" : "전체 보기") {
+                            withAnimation { showAll.toggle() }
+                        }
+                        .font(.caption)
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.blue)
+                    }
+
+                    switch viewMode {
+                    case .daily:
+                        let items = showAll ? data.dailyUsage : Array(data.dailyUsage.prefix(7))
+                        ForEach(items) { day in
+                            DailyUsageRow(day: day, maxCost: data.maxDailyCost, isExpanded: selectedItemForBreakdown == day.date) {
+                                withAnimation { selectedItemForBreakdown = selectedItemForBreakdown == day.date ? nil : day.date }
+                            }
+                        }
+
+                    case .monthly:
+                        let items = showAll ? data.monthlyUsage : Array(data.monthlyUsage.prefix(6))
+                        ForEach(items) { month in
+                            MonthlyUsageRow(month: month, maxCost: data.maxMonthlyCost, isExpanded: selectedItemForBreakdown == month.month) {
+                                withAnimation { selectedItemForBreakdown = selectedItemForBreakdown == month.month ? nil : month.month }
+                            }
+                        }
+
+                    case .blocks:
+                        let items = showAll ? data.blockUsage : Array(data.blockUsage.prefix(10))
+                        ForEach(items) { block in
+                            BlockUsageRow(block: block, maxCost: data.maxBlockCost)
+                        }
+                    }
+                }
+                .padding()
+                .background(.quaternary.opacity(0.3))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            } else if !isLoading {
+                HStack {
+                    Image(systemName: "exclamationmark.triangle")
+                        .foregroundStyle(.orange)
+                    Text("ccusage 실행 실패 - npm install -g ccusage로 설치하세요")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding()
+                .background(.quaternary.opacity(0.3))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
             }
         }
     }
-    
+
     private func formatTokens(_ n: Int) -> String {
         if n >= 1_000_000 {
             return String(format: "%.1fM", Double(n) / 1_000_000.0)
@@ -1572,6 +1715,419 @@ struct UsageSection: View {
             return String(format: "%.1fK", Double(n) / 1000.0)
         }
         return "\(n)"
+    }
+
+    private func launchClaudeMonitor(plan: ClaudePlan, view: String? = nil) {
+        // Build claude-monitor command with options
+        var command = "claude-monitor --plan \(plan.rawValue)"
+        if let view = view {
+            command += " --view \(view)"
+        }
+
+        // Launch in Terminal
+        let script = """
+        tell application "Terminal"
+            activate
+            do script "\(command)"
+        end tell
+        """
+        if let appleScript = NSAppleScript(source: script) {
+            var error: NSDictionary?
+            appleScript.executeAndReturnError(&error)
+        }
+    }
+}
+
+// MARK: - Claude Plan Enum
+enum ClaudePlan: String, CaseIterable {
+    case pro = "pro"
+    case max5 = "max5"
+    case max20 = "max20"
+
+    var displayName: String {
+        switch self {
+        case .pro: return "Pro ($18/월, 19K 토큰)"
+        case .max5: return "Max5 ($35/월, 88K 토큰)"
+        case .max20: return "Max20 ($140/월, 220K 토큰)"
+        }
+    }
+
+    var shortName: String {
+        switch self {
+        case .pro: return "Pro"
+        case .max5: return "Max5"
+        case .max20: return "Max20"
+        }
+    }
+}
+
+struct UsageStatCard: View {
+    let title: String
+    let value: String
+    let icon: String
+    let color: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Image(systemName: icon)
+                    .foregroundStyle(color)
+                Text(title)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Text(value)
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.regularMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+}
+
+struct DailyUsageRow: View {
+    let day: UsageData.DailyUsage
+    let maxCost: Double
+    var isExpanded: Bool = false
+    var onTap: (() -> Void)? = nil
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 12) {
+                // Expand button
+                if !day.modelBreakdowns.isEmpty {
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 12)
+                } else {
+                    Spacer().frame(width: 12)
+                }
+
+                // Date
+                Text(formatDate(day.date))
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 50, alignment: .leading)
+
+                // Cost bar
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(.quaternary)
+
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(day.cost > 5 ? .orange : .blue)
+                            .frame(width: max(4, geo.size.width * CGFloat(day.cost / maxCost)))
+                    }
+                }
+                .frame(height: 8)
+
+                // Cost value
+                Text(String(format: "$%.2f", day.cost))
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundStyle(day.cost > 5 ? .orange : .primary)
+                    .frame(width: 50, alignment: .trailing)
+
+                // Models
+                HStack(spacing: 4) {
+                    ForEach(day.modelsUsed, id: \.self) { model in
+                        Text(shortModelName(model))
+                            .font(.system(size: 9))
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .background(modelColor(model).opacity(0.2))
+                            .foregroundStyle(modelColor(model))
+                            .clipShape(Capsule())
+                    }
+                }
+                .frame(width: 100, alignment: .trailing)
+            }
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
+            .onTapGesture { onTap?() }
+
+            // Model Breakdown (expanded)
+            if isExpanded && !day.modelBreakdowns.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(day.modelBreakdowns) { breakdown in
+                        ModelBreakdownRow(breakdown: breakdown)
+                    }
+                }
+                .padding(.leading, 24)
+                .padding(.vertical, 4)
+                .background(.quaternary.opacity(0.3))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+            }
+        }
+    }
+
+    private func formatDate(_ dateString: String) -> String {
+        let components = dateString.split(separator: "-")
+        if components.count >= 3 {
+            return "\(components[1])/\(components[2])"
+        }
+        return dateString
+    }
+
+    private func shortModelName(_ model: String) -> String {
+        if model.contains("opus") { return "Opus" }
+        if model.contains("sonnet") { return "Sonnet" }
+        if model.contains("haiku") { return "Haiku" }
+        return String(model.prefix(6))
+    }
+
+    private func modelColor(_ model: String) -> Color {
+        if model.contains("opus") { return .purple }
+        if model.contains("sonnet") { return .blue }
+        if model.contains("haiku") { return .green }
+        return .gray
+    }
+}
+
+// MARK: - Monthly Usage Row
+struct MonthlyUsageRow: View {
+    let month: UsageData.MonthlyUsage
+    let maxCost: Double
+    var isExpanded: Bool = false
+    var onTap: (() -> Void)? = nil
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 12) {
+                // Expand button
+                if !month.modelBreakdowns.isEmpty {
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 12)
+                } else {
+                    Spacer().frame(width: 12)
+                }
+
+                // Month
+                Text(formatMonth(month.month))
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 50, alignment: .leading)
+
+                // Cost bar
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(.quaternary)
+
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(month.cost > 50 ? .red : month.cost > 20 ? .orange : .blue)
+                            .frame(width: max(4, geo.size.width * CGFloat(month.cost / maxCost)))
+                    }
+                }
+                .frame(height: 8)
+
+                // Cost value
+                Text(String(format: "$%.2f", month.cost))
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundStyle(month.cost > 50 ? .red : month.cost > 20 ? .orange : .primary)
+                    .frame(width: 55, alignment: .trailing)
+
+                // Models
+                HStack(spacing: 4) {
+                    ForEach(month.modelsUsed.prefix(3), id: \.self) { model in
+                        Text(shortModelName(model))
+                            .font(.system(size: 9))
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .background(modelColor(model).opacity(0.2))
+                            .foregroundStyle(modelColor(model))
+                            .clipShape(Capsule())
+                    }
+                }
+                .frame(width: 100, alignment: .trailing)
+            }
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
+            .onTapGesture { onTap?() }
+
+            // Model Breakdown (expanded)
+            if isExpanded && !month.modelBreakdowns.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(month.modelBreakdowns) { breakdown in
+                        ModelBreakdownRow(breakdown: breakdown)
+                    }
+                }
+                .padding(.leading, 24)
+                .padding(.vertical, 4)
+                .background(.quaternary.opacity(0.3))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+            }
+        }
+    }
+
+    private func formatMonth(_ monthString: String) -> String {
+        // "2025-12" -> "25/12"
+        let components = monthString.split(separator: "-")
+        if components.count >= 2 {
+            let year = String(components[0].suffix(2))
+            return "\(year)/\(components[1])"
+        }
+        return monthString
+    }
+
+    private func shortModelName(_ model: String) -> String {
+        if model.contains("opus") { return "Opus" }
+        if model.contains("sonnet") { return "Sonnet" }
+        if model.contains("haiku") { return "Haiku" }
+        return String(model.prefix(6))
+    }
+
+    private func modelColor(_ model: String) -> Color {
+        if model.contains("opus") { return .purple }
+        if model.contains("sonnet") { return .blue }
+        if model.contains("haiku") { return .green }
+        return .gray
+    }
+}
+
+// MARK: - Block Usage Row (5-hour rolling window)
+struct BlockUsageRow: View {
+    let block: UsageData.BlockUsage
+    let maxCost: Double
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Active indicator
+            Circle()
+                .fill(block.isActive ? .green : .gray.opacity(0.3))
+                .frame(width: 8, height: 8)
+
+            // Time range
+            VStack(alignment: .leading, spacing: 2) {
+                Text(formatTime(block.startTime))
+                    .font(.system(size: 10, design: .monospaced))
+                Text(formatTime(block.endTime))
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
+            .frame(width: 70, alignment: .leading)
+
+            // Cost bar
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(.quaternary)
+
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(block.isActive ? .green : .blue)
+                        .frame(width: max(4, geo.size.width * CGFloat(block.cost / maxCost)))
+                }
+            }
+            .frame(height: 8)
+
+            // Cost value
+            Text(String(format: "$%.3f", block.cost))
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .foregroundStyle(block.isActive ? .green : .primary)
+                .frame(width: 55, alignment: .trailing)
+
+            // Models
+            HStack(spacing: 4) {
+                ForEach(block.models.prefix(2), id: \.self) { model in
+                    Text(shortModelName(model))
+                        .font(.system(size: 9))
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 2)
+                        .background(modelColor(model).opacity(0.2))
+                        .foregroundStyle(modelColor(model))
+                        .clipShape(Capsule())
+                }
+            }
+            .frame(width: 80, alignment: .trailing)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func formatTime(_ timeString: String) -> String {
+        // "2025-12-13T10:00:00" -> "12/13 10:00"
+        let parts = timeString.split(separator: "T")
+        if parts.count == 2 {
+            let dateParts = parts[0].split(separator: "-")
+            let timeParts = parts[1].split(separator: ":")
+            if dateParts.count >= 3 && timeParts.count >= 2 {
+                return "\(dateParts[1])/\(dateParts[2]) \(timeParts[0]):\(timeParts[1])"
+            }
+        }
+        return timeString
+    }
+
+    private func shortModelName(_ model: String) -> String {
+        if model.contains("opus") { return "Opus" }
+        if model.contains("sonnet") { return "Sonnet" }
+        if model.contains("haiku") { return "Haiku" }
+        return String(model.prefix(6))
+    }
+
+    private func modelColor(_ model: String) -> Color {
+        if model.contains("opus") { return .purple }
+        if model.contains("sonnet") { return .blue }
+        if model.contains("haiku") { return .green }
+        return .gray
+    }
+}
+
+// MARK: - Model Breakdown Row
+struct ModelBreakdownRow: View {
+    let breakdown: UsageData.ModelBreakdown
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(modelColor(breakdown.modelName))
+                .frame(width: 6, height: 6)
+
+            Text(shortModelName(breakdown.modelName))
+                .font(.system(size: 10, weight: .medium))
+                .frame(width: 50, alignment: .leading)
+
+            Text("In: \(formatTokens(breakdown.inputTokens))")
+                .font(.system(size: 9, design: .monospaced))
+                .foregroundStyle(.secondary)
+
+            Text("Out: \(formatTokens(breakdown.outputTokens))")
+                .font(.system(size: 9, design: .monospaced))
+                .foregroundStyle(.secondary)
+
+            Spacer()
+
+            Text(String(format: "$%.2f", breakdown.cost))
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .foregroundStyle(modelColor(breakdown.modelName))
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+    }
+
+    private func formatTokens(_ n: Int) -> String {
+        if n >= 1_000_000 {
+            return String(format: "%.1fM", Double(n) / 1_000_000.0)
+        } else if n >= 1000 {
+            return String(format: "%.1fK", Double(n) / 1000.0)
+        }
+        return "\(n)"
+    }
+
+    private func shortModelName(_ model: String) -> String {
+        if model.contains("opus") { return "Opus" }
+        if model.contains("sonnet") { return "Sonnet" }
+        if model.contains("haiku") { return "Haiku" }
+        return String(model.prefix(8))
+    }
+
+    private func modelColor(_ model: String) -> Color {
+        if model.contains("opus") { return .purple }
+        if model.contains("sonnet") { return .blue }
+        if model.contains("haiku") { return .green }
+        return .gray
     }
 }
 
@@ -1955,32 +2511,166 @@ struct APIStatusRow: View {
 }
 
 // MARK: - Supporting Types
+enum UsageViewMode: String, CaseIterable {
+    case daily = "일일"
+    case monthly = "월간"
+    case blocks = "5시간 블록"
+}
+
 struct UsageData {
     let totalCost: Double
     let inputTokens: Int
     let outputTokens: Int
+    let cacheCreationTokens: Int
+    let cacheReadTokens: Int
+    let totalTokens: Int
     let dailyUsage: [DailyUsage]
+    let monthlyUsage: [MonthlyUsage]
+    let blockUsage: [BlockUsage]
     var maxDailyCost: Double { dailyUsage.map { $0.cost }.max() ?? 1.0 }
-    
-    struct DailyUsage {
+    var maxMonthlyCost: Double { monthlyUsage.map { $0.cost }.max() ?? 1.0 }
+    var maxBlockCost: Double { blockUsage.map { $0.cost }.max() ?? 1.0 }
+
+    struct DailyUsage: Identifiable {
+        let id = UUID()
         let date: String
         let cost: Double
+        let inputTokens: Int
+        let outputTokens: Int
+        let totalTokens: Int
+        let modelsUsed: [String]
+        let modelBreakdowns: [ModelBreakdown]
     }
-    
-    init(from json: [String: Any]) {
-        totalCost = json["total_cost"] as? Double ?? 0
-        inputTokens = json["input_tokens"] as? Int ?? 0
-        outputTokens = json["output_tokens"] as? Int ?? 0
-        
-        if let daily = json["daily"] as? [[String: Any]] {
-            dailyUsage = daily.compactMap { day in
-                guard let date = day["date"] as? String,
-                      let cost = day["cost"] as? Double else { return nil }
-                return DailyUsage(date: date, cost: cost)
-            }
-        } else {
-            dailyUsage = []
+
+    struct MonthlyUsage: Identifiable {
+        let id = UUID()
+        let month: String
+        let cost: Double
+        let inputTokens: Int
+        let outputTokens: Int
+        let totalTokens: Int
+        let modelsUsed: [String]
+        let modelBreakdowns: [ModelBreakdown]
+    }
+
+    struct BlockUsage: Identifiable {
+        let id = UUID()
+        let blockId: String
+        let startTime: String
+        let endTime: String
+        let isActive: Bool
+        let cost: Double
+        let totalTokens: Int
+        let models: [String]
+    }
+
+    struct ModelBreakdown: Identifiable {
+        let id = UUID()
+        let modelName: String
+        let inputTokens: Int
+        let outputTokens: Int
+        let cacheCreationTokens: Int
+        let cacheReadTokens: Int
+        let cost: Double
+    }
+
+    static func parseModelBreakdowns(_ breakdowns: [[String: Any]]?) -> [ModelBreakdown] {
+        guard let breakdowns = breakdowns else { return [] }
+        return breakdowns.map { b in
+            ModelBreakdown(
+                modelName: b["modelName"] as? String ?? "",
+                inputTokens: b["inputTokens"] as? Int ?? 0,
+                outputTokens: b["outputTokens"] as? Int ?? 0,
+                cacheCreationTokens: b["cacheCreationTokens"] as? Int ?? 0,
+                cacheReadTokens: b["cacheReadTokens"] as? Int ?? 0,
+                cost: b["cost"] as? Double ?? 0
+            )
         }
+    }
+
+    init(dailyJson: [String: Any]?, monthlyJson: [String: Any]?, blocksJson: [String: Any]?) {
+        var totalCostSum: Double = 0
+        var totalInputTokens: Int = 0
+        var totalOutputTokens: Int = 0
+        var totalCacheCreation: Int = 0
+        var totalCacheRead: Int = 0
+        var allTokens: Int = 0
+        var dailyList: [DailyUsage] = []
+        var monthlyList: [MonthlyUsage] = []
+        var blockList: [BlockUsage] = []
+
+        // Parse daily data
+        if let daily = dailyJson?["daily"] as? [[String: Any]] {
+            for day in daily {
+                let date = day["date"] as? String ?? ""
+                let cost = day["totalCost"] as? Double ?? 0
+                let input = day["inputTokens"] as? Int ?? 0
+                let output = day["outputTokens"] as? Int ?? 0
+                let cacheCreation = day["cacheCreationTokens"] as? Int ?? 0
+                let cacheRead = day["cacheReadTokens"] as? Int ?? 0
+                let tokens = day["totalTokens"] as? Int ?? 0
+                let models = day["modelsUsed"] as? [String] ?? []
+                let breakdowns = Self.parseModelBreakdowns(day["modelBreakdowns"] as? [[String: Any]])
+
+                totalCostSum += cost
+                totalInputTokens += input
+                totalOutputTokens += output
+                totalCacheCreation += cacheCreation
+                totalCacheRead += cacheRead
+                allTokens += tokens
+
+                dailyList.append(DailyUsage(
+                    date: date, cost: cost, inputTokens: input, outputTokens: output,
+                    totalTokens: tokens, modelsUsed: models, modelBreakdowns: breakdowns
+                ))
+            }
+        }
+
+        // Parse monthly data
+        if let monthly = monthlyJson?["monthly"] as? [[String: Any]] {
+            for month in monthly {
+                let monthStr = month["month"] as? String ?? ""
+                let cost = month["totalCost"] as? Double ?? 0
+                let input = month["inputTokens"] as? Int ?? 0
+                let output = month["outputTokens"] as? Int ?? 0
+                let tokens = month["totalTokens"] as? Int ?? 0
+                let models = month["modelsUsed"] as? [String] ?? []
+                let breakdowns = Self.parseModelBreakdowns(month["modelBreakdowns"] as? [[String: Any]])
+
+                monthlyList.append(MonthlyUsage(
+                    month: monthStr, cost: cost, inputTokens: input, outputTokens: output,
+                    totalTokens: tokens, modelsUsed: models, modelBreakdowns: breakdowns
+                ))
+            }
+        }
+
+        // Parse blocks data
+        if let blocks = blocksJson?["blocks"] as? [[String: Any]] {
+            for block in blocks {
+                let blockId = block["id"] as? String ?? ""
+                let startTime = block["startTime"] as? String ?? ""
+                let endTime = block["endTime"] as? String ?? ""
+                let isActive = block["isActive"] as? Bool ?? false
+                let cost = block["costUSD"] as? Double ?? 0
+                let tokens = block["totalTokens"] as? Int ?? 0
+                let models = block["models"] as? [String] ?? []
+
+                blockList.append(BlockUsage(
+                    blockId: blockId, startTime: startTime, endTime: endTime,
+                    isActive: isActive, cost: cost, totalTokens: tokens, models: models
+                ))
+            }
+        }
+
+        self.totalCost = totalCostSum
+        self.inputTokens = totalInputTokens
+        self.outputTokens = totalOutputTokens
+        self.cacheCreationTokens = totalCacheCreation
+        self.cacheReadTokens = totalCacheRead
+        self.totalTokens = allTokens
+        self.dailyUsage = dailyList
+        self.monthlyUsage = monthlyList
+        self.blockUsage = blockList
     }
 }
 
@@ -2229,6 +2919,847 @@ struct MarkdownText: View {
         }
 
         return cells
+    }
+}
+
+// MARK: - Native Monitor View
+struct NativeMonitorView: View {
+    let plan: ClaudePlan
+    @State private var monitorData: MonitorData?
+    @State private var isLoading = true
+    @State private var errorMessage: String?
+    @State private var refreshTimer: Timer?
+    @State private var refreshInterval: Double = 10.0
+    @Environment(\.dismiss) private var dismiss
+
+    // Customizable colors
+    @State private var costBarColor: Color = .orange
+    @State private var tokenBarColor: Color = .green
+    @State private var messageBarColor: Color = .blue
+    @State private var warningColor: Color = .red
+    @State private var showColorPicker = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("실시간 모니터링")
+                        .font(.headline)
+                    Text("\(plan.displayName)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                // Refresh interval
+                HStack(spacing: 4) {
+                    Text("새로고침:")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Picker("", selection: $refreshInterval) {
+                        Text("5초").tag(5.0)
+                        Text("10초").tag(10.0)
+                        Text("30초").tag(30.0)
+                        Text("60초").tag(60.0)
+                    }
+                    .labelsHidden()
+                    .frame(width: 70)
+                    .onChange(of: refreshInterval) { _, _ in
+                        setupTimer()
+                    }
+                }
+
+                Button {
+                    showColorPicker.toggle()
+                } label: {
+                    Image(systemName: "paintpalette")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .popover(isPresented: $showColorPicker) {
+                    ColorCustomizationView(
+                        costBarColor: $costBarColor,
+                        tokenBarColor: $tokenBarColor,
+                        messageBarColor: $messageBarColor,
+                        warningColor: $warningColor
+                    )
+                }
+
+                Button {
+                    Task { await loadData() }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .foregroundStyle(.blue)
+                }
+                .buttonStyle(.plain)
+                .disabled(isLoading)
+
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding()
+            .background(.regularMaterial)
+
+            Divider()
+
+            if isLoading && monitorData == nil {
+                Spacer()
+                ProgressView("데이터 로딩 중...")
+                Spacer()
+            } else if let error = errorMessage {
+                Spacer()
+                VStack(spacing: 12) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.largeTitle)
+                        .foregroundStyle(.orange)
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button("다시 시도") {
+                        Task { await loadData() }
+                    }
+                }
+                Spacer()
+            } else if let data = monitorData {
+                ScrollView {
+                    VStack(spacing: 20) {
+                        // Plan Info
+                        HStack {
+                            Label(plan.shortName, systemImage: "person.badge.shield.checkmark")
+                                .font(.subheadline.bold())
+                            Spacer()
+                            Text("리셋까지: \(data.timeToReset)")
+                                .font(.caption.monospaced())
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(data.timeToResetMinutes < 30 ? warningColor.opacity(0.2) : Color.gray.opacity(0.2))
+                                .clipShape(Capsule())
+                        }
+                        .padding(.horizontal)
+                        .padding(.top)
+
+                        // Usage Bars
+                        VStack(spacing: 16) {
+                            MonitorBarView(
+                                title: "비용 사용량",
+                                icon: "dollarsign.circle",
+                                current: data.currentCost,
+                                limit: data.costLimit,
+                                formatValue: { String(format: "$%.2f", $0) },
+                                barColor: costBarColor,
+                                warningThreshold: 0.8
+                            )
+
+                            MonitorBarView(
+                                title: "토큰 사용량",
+                                icon: "number.circle",
+                                current: Double(data.currentTokens),
+                                limit: Double(data.tokenLimit),
+                                formatValue: { formatTokensShort(Int($0)) },
+                                barColor: tokenBarColor,
+                                warningThreshold: 0.8
+                            )
+
+                            MonitorBarView(
+                                title: "메시지 사용량",
+                                icon: "message.circle",
+                                current: Double(data.currentMessages),
+                                limit: Double(data.messageLimit),
+                                formatValue: { "\(Int($0))" },
+                                barColor: messageBarColor,
+                                warningThreshold: 0.8
+                            )
+                        }
+                        .padding(.horizontal)
+
+                        Divider()
+
+                        // Model Distribution
+                        if !data.modelDistribution.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("모델 분포")
+                                    .font(.subheadline.bold())
+
+                                HStack(spacing: 4) {
+                                    ForEach(data.modelDistribution, id: \.model) { dist in
+                                        GeometryReader { geo in
+                                            RoundedRectangle(cornerRadius: 4)
+                                                .fill(modelColor(dist.model))
+                                                .frame(width: geo.size.width * CGFloat(dist.percentage / 100.0))
+                                        }
+                                    }
+                                }
+                                .frame(height: 20)
+                                .background(.quaternary)
+                                .clipShape(RoundedRectangle(cornerRadius: 4))
+
+                                HStack(spacing: 16) {
+                                    ForEach(data.modelDistribution, id: \.model) { dist in
+                                        HStack(spacing: 4) {
+                                            Circle()
+                                                .fill(modelColor(dist.model))
+                                                .frame(width: 8, height: 8)
+                                            Text("\(shortModelName(dist.model)) \(String(format: "%.1f%%", dist.percentage))")
+                                                .font(.caption2)
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(.horizontal)
+                        }
+
+                        Divider()
+
+                        // Burn Rate & Predictions
+                        HStack(spacing: 20) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("🔥 번 레이트")
+                                    .font(.caption.bold())
+                                Text(String(format: "%.1f 토큰/분", data.burnRate))
+                                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                                    .foregroundStyle(data.burnRate > 100 ? warningColor : .primary)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding()
+                            .background(.quaternary.opacity(0.5))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("⏰ 예측")
+                                    .font(.caption.bold())
+                                if let exhaustTime = data.tokenExhaustionTime {
+                                    Text("소진: \(exhaustTime)")
+                                        .font(.caption)
+                                        .foregroundStyle(warningColor)
+                                } else {
+                                    Text("충분한 여유")
+                                        .font(.caption)
+                                        .foregroundStyle(.green)
+                                }
+                                Text("리셋: \(data.resetTime)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding()
+                            .background(.quaternary.opacity(0.5))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                        }
+                        .padding(.horizontal)
+
+                        Divider()
+
+                        // Burn Rate Prediction Chart
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("📈 소비 예측 그래프")
+                                    .font(.subheadline.bold())
+                                Spacer()
+                                if data.projectedTotalCost > 0 {
+                                    Text("예상: $\(String(format: "%.2f", data.projectedTotalCost))")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+
+                            BurnRateChartView(
+                                currentTokens: data.currentTokens,
+                                tokenLimit: data.tokenLimit,
+                                currentCost: data.currentCost,
+                                costLimit: data.costLimit,
+                                burnRate: data.burnRate,
+                                costPerHour: data.costPerHour,
+                                remainingMinutes: data.timeToResetMinutes,
+                                tokenBarColor: tokenBarColor,
+                                costBarColor: costBarColor,
+                                warningColor: warningColor
+                            )
+                            .frame(height: 200)
+                        }
+                        .padding(.horizontal)
+
+                        // Last updated
+                        HStack {
+                            Spacer()
+                            Text("마지막 업데이트: \(data.lastUpdated)")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.horizontal)
+                        .padding(.bottom)
+                    }
+                }
+            }
+        }
+        .frame(width: 500, height: 700)
+        .task {
+            await loadData()
+            setupTimer()
+        }
+        .onDisappear {
+            refreshTimer?.invalidate()
+        }
+    }
+
+    private func setupTimer() {
+        refreshTimer?.invalidate()
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: refreshInterval, repeats: true) { _ in
+            Task { await loadData() }
+        }
+    }
+
+    private func loadData() async {
+        isLoading = true
+        errorMessage = nil
+
+        // Use ccusage blocks --active for real-time 5-hour window data (same as claude-monitor)
+        let tempFile = FileManager.default.temporaryDirectory.appendingPathComponent("ccusage_blocks_\(UUID().uuidString).json")
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+        process.arguments = ["-l", "-c", "ccusage blocks --active --json --breakdown 2>/dev/null > '\(tempFile.path)'"]
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+
+            if FileManager.default.fileExists(atPath: tempFile.path) {
+                let jsonData = try Data(contentsOf: tempFile)
+
+                guard !jsonData.isEmpty else {
+                    await MainActor.run {
+                        self.errorMessage = "ccusage가 데이터를 반환하지 않았습니다"
+                        self.isLoading = false
+                    }
+                    return
+                }
+
+                if let json = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
+                   let blocks = json["blocks"] as? [[String: Any]],
+                   let activeBlock = blocks.first(where: { $0["isActive"] as? Bool == true }) ?? blocks.last {
+
+                    let cost = activeBlock["costUSD"] as? Double ?? 0
+                    let tokens = activeBlock["totalTokens"] as? Int ?? 0
+                    let models = activeBlock["models"] as? [String] ?? []
+
+                    // Get burn rate from ccusage
+                    let burnRateData = activeBlock["burnRate"] as? [String: Any]
+                    let tokensPerMinute = burnRateData?["tokensPerMinute"] as? Double ?? 0
+                    let costPerHour = burnRateData?["costPerHour"] as? Double ?? 0
+
+                    // Get projection data
+                    let projection = activeBlock["projection"] as? [String: Any]
+                    let remainingMinutes = projection?["remainingMinutes"] as? Int ?? 0
+                    let projectedTotalCost = projection?["totalCost"] as? Double ?? 0
+
+                    // Calculate time to reset
+                    let hours = remainingMinutes / 60
+                    let mins = remainingMinutes % 60
+                    let timeToReset = "\(hours)h \(mins)m"
+
+                    // Get end time for reset time display
+                    let endTimeStr = activeBlock["endTime"] as? String ?? ""
+                    let resetTimeDisplay: String
+                    if let endDate = ISO8601DateFormatter().date(from: endTimeStr) {
+                        let formatter = DateFormatter()
+                        formatter.dateFormat = "HH:mm"
+                        resetTimeDisplay = formatter.string(from: endDate)
+                    } else {
+                        resetTimeDisplay = "--:--"
+                    }
+
+                    // Model distribution (simplified - equal distribution for now)
+                    let modelDist = models.enumerated().map { index, model in
+                        MonitorData.ModelDist(
+                            model: model.replacingOccurrences(of: "claude-", with: "").replacingOccurrences(of: "-20251101", with: ""),
+                            percentage: 100.0 / Double(max(1, models.count))
+                        )
+                    }
+
+                    // Calculate exhaustion time
+                    var exhaustionTime: String? = nil
+                    if tokensPerMinute > 0 {
+                        let tokenLimit = plan.tokenLimit
+                        let remaining = tokenLimit - tokens
+                        if remaining > 0 && remaining < tokenLimit {
+                            let minutesUntilExhaustion = Double(remaining) / tokensPerMinute
+                            if minutesUntilExhaustion < Double(remainingMinutes) {
+                                let exhaustionDate = Date().addingTimeInterval(minutesUntilExhaustion * 60)
+                                let formatter = DateFormatter()
+                                formatter.dateFormat = "HH:mm"
+                                exhaustionTime = formatter.string(from: exhaustionDate)
+                            }
+                        }
+                    }
+
+                    let formatter = DateFormatter()
+                    formatter.dateFormat = "HH:mm:ss"
+                    let lastUpdatedStr = formatter.string(from: Date())
+
+                    await MainActor.run {
+                        self.monitorData = MonitorData(
+                            currentCost: cost,
+                            costLimit: plan.costLimit,
+                            currentTokens: tokens,
+                            tokenLimit: plan.tokenLimit,
+                            currentMessages: activeBlock["entries"] as? Int ?? 0,
+                            messageLimit: plan.messageLimit,
+                            timeToReset: timeToReset,
+                            timeToResetMinutes: remainingMinutes,
+                            burnRate: tokensPerMinute,
+                            costPerHour: costPerHour,
+                            projectedTotalCost: projectedTotalCost,
+                            tokenExhaustionTime: exhaustionTime,
+                            resetTime: resetTimeDisplay,
+                            modelDistribution: modelDist,
+                            lastUpdated: lastUpdatedStr
+                        )
+                        self.isLoading = false
+                    }
+                } else {
+                    await MainActor.run {
+                        self.monitorData = MonitorData(
+                            currentCost: 0,
+                            costLimit: plan.costLimit,
+                            currentTokens: 0,
+                            tokenLimit: plan.tokenLimit,
+                            currentMessages: 0,
+                            messageLimit: plan.messageLimit,
+                            timeToReset: "활성 블록 없음",
+                            timeToResetMinutes: 300,
+                            burnRate: 0,
+                            costPerHour: 0,
+                            projectedTotalCost: 0,
+                            tokenExhaustionTime: nil,
+                            resetTime: "--:--",
+                            modelDistribution: [],
+                            lastUpdated: DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium)
+                        )
+                        self.isLoading = false
+                    }
+                }
+                try? FileManager.default.removeItem(at: tempFile)
+            }
+        } catch {
+            await MainActor.run {
+                self.errorMessage = "ccusage 실행 실패: \(error.localizedDescription)"
+                self.isLoading = false
+            }
+        }
+    }
+
+    private func formatTokensShort(_ n: Int) -> String {
+        if n >= 1_000_000 {
+            return String(format: "%.1fM", Double(n) / 1_000_000.0)
+        } else if n >= 1000 {
+            return String(format: "%.0fK", Double(n) / 1000.0)
+        }
+        return "\(n)"
+    }
+
+    private func shortModelName(_ model: String) -> String {
+        if model.contains("opus") { return "Opus" }
+        if model.contains("sonnet") { return "Sonnet" }
+        if model.contains("haiku") { return "Haiku" }
+        return String(model.prefix(6))
+    }
+
+    private func modelColor(_ model: String) -> Color {
+        if model.contains("opus") { return .purple }
+        if model.contains("sonnet") { return .blue }
+        if model.contains("haiku") { return .green }
+        return .gray
+    }
+}
+
+// MARK: - Monitor Data Model
+struct MonitorData {
+    let currentCost: Double
+    let costLimit: Double
+    let currentTokens: Int
+    let tokenLimit: Int
+    let currentMessages: Int
+    let messageLimit: Int
+    let timeToReset: String
+    let timeToResetMinutes: Int
+    let burnRate: Double // tokens per minute
+    let costPerHour: Double // cost per hour (from ccusage)
+    let projectedTotalCost: Double // projected cost by end of block
+    let tokenExhaustionTime: String?
+    let resetTime: String
+    let modelDistribution: [ModelDist]
+    let lastUpdated: String
+
+    struct ModelDist {
+        let model: String
+        let percentage: Double
+    }
+}
+
+// MARK: - Burn Rate Chart View
+struct BurnRateChartView: View {
+    let currentTokens: Int
+    let tokenLimit: Int
+    let currentCost: Double
+    let costLimit: Double
+    let burnRate: Double // tokens per minute
+    let costPerHour: Double
+    let remainingMinutes: Int
+    let tokenBarColor: Color
+    let costBarColor: Color
+    let warningColor: Color
+
+    @State private var chartMode: ChartMode = .tokens
+
+    enum ChartMode: String, CaseIterable {
+        case tokens = "토큰"
+        case cost = "비용"
+    }
+
+    // Generate projection data points
+    private var projectionData: [ProjectionPoint] {
+        var points: [ProjectionPoint] = []
+        let now = Date()
+
+        // Current point
+        points.append(ProjectionPoint(
+            time: now,
+            actual: chartMode == .tokens ? Double(currentTokens) : currentCost,
+            projected: nil,
+            isActual: true
+        ))
+
+        // Project into the future based on burn rate
+        let projectionMinutes = min(remainingMinutes, 300) // Max 5 hours
+        let intervals = 10 // Number of projection points
+
+        for i in 1...intervals {
+            let minutesAhead = (projectionMinutes * i) / intervals
+            let futureTime = now.addingTimeInterval(Double(minutesAhead) * 60)
+
+            let projectedValue: Double
+            if chartMode == .tokens {
+                projectedValue = Double(currentTokens) + (burnRate * Double(minutesAhead))
+            } else {
+                projectedValue = currentCost + (costPerHour / 60.0 * Double(minutesAhead))
+            }
+
+            points.append(ProjectionPoint(
+                time: futureTime,
+                actual: nil,
+                projected: projectedValue,
+                isActual: false
+            ))
+        }
+
+        return points
+    }
+
+    private var limitValue: Double {
+        chartMode == .tokens ? Double(tokenLimit) : costLimit
+    }
+
+    private var currentValue: Double {
+        chartMode == .tokens ? Double(currentTokens) : currentCost
+    }
+
+    private var projectedEndValue: Double {
+        if chartMode == .tokens {
+            return Double(currentTokens) + (burnRate * Double(remainingMinutes))
+        } else {
+            return currentCost + (costPerHour / 60.0 * Double(remainingMinutes))
+        }
+    }
+
+    private var willExceedLimit: Bool {
+        projectedEndValue > limitValue
+    }
+
+    var body: some View {
+        VStack(spacing: 8) {
+            // Mode selector
+            Picker("Mode", selection: $chartMode) {
+                ForEach(ChartMode.allCases, id: \.self) { mode in
+                    Text(mode.rawValue).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 150)
+
+            // Chart
+            Chart {
+                // Limit line
+                RuleMark(y: .value("Limit", limitValue))
+                    .foregroundStyle(warningColor.opacity(0.5))
+                    .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 5]))
+                    .annotation(position: .top, alignment: .trailing) {
+                        Text(chartMode == .tokens ? "한도: \(formatTokens(Int(limitValue)))" : "한도: $\(String(format: "%.0f", limitValue))")
+                            .font(.caption2)
+                            .foregroundStyle(warningColor)
+                    }
+
+                // Current actual point
+                PointMark(
+                    x: .value("Time", Date()),
+                    y: .value("Usage", currentValue)
+                )
+                .foregroundStyle(chartMode == .tokens ? tokenBarColor : costBarColor)
+                .symbolSize(100)
+                .annotation(position: .top) {
+                    Text(chartMode == .tokens ? formatTokens(Int(currentValue)) : "$\(String(format: "%.2f", currentValue))")
+                        .font(.caption2.bold())
+                        .foregroundStyle(chartMode == .tokens ? tokenBarColor : costBarColor)
+                }
+
+                // Projection line
+                ForEach(projectionData.filter { $0.projected != nil }, id: \.time) { point in
+                    LineMark(
+                        x: .value("Time", point.time),
+                        y: .value("Projected", point.projected ?? 0)
+                    )
+                    .foregroundStyle(willExceedLimit ? warningColor.opacity(0.7) : Color.gray.opacity(0.7))
+                    .lineStyle(StrokeStyle(lineWidth: 2, dash: [4, 4]))
+                }
+
+                // Area under projection
+                ForEach(projectionData, id: \.time) { point in
+                    AreaMark(
+                        x: .value("Time", point.time),
+                        y: .value("Value", point.actual ?? point.projected ?? 0)
+                    )
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [
+                                (chartMode == .tokens ? tokenBarColor : costBarColor).opacity(0.3),
+                                (chartMode == .tokens ? tokenBarColor : costBarColor).opacity(0.05)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                }
+            }
+            .chartXAxis {
+                AxisMarks(values: .stride(by: .hour)) { value in
+                    AxisGridLine()
+                    AxisValueLabel(format: .dateTime.hour(.defaultDigits(amPM: .abbreviated)))
+                }
+            }
+            .chartYAxis {
+                AxisMarks { value in
+                    AxisGridLine()
+                    AxisValueLabel {
+                        if let v = value.as(Double.self) {
+                            if chartMode == .tokens {
+                                Text(formatTokensShort(Int(v)))
+                            } else {
+                                Text("$\(String(format: "%.0f", v))")
+                            }
+                        }
+                    }
+                }
+            }
+            .chartYScale(domain: 0...(max(limitValue * 1.2, projectedEndValue * 1.1)))
+
+            // Projection summary
+            HStack {
+                if willExceedLimit {
+                    Label("한도 초과 예상", systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(warningColor)
+                } else {
+                    Label("한도 내 예상", systemImage: "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.green)
+                }
+                Spacer()
+                Text(projectedEndText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding()
+        .background(.quaternary.opacity(0.3))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    private var projectedEndText: String {
+        let valueStr: String
+        if chartMode == .tokens {
+            valueStr = formatTokens(Int(projectedEndValue))
+        } else {
+            valueStr = String(format: "$%.2f", projectedEndValue)
+        }
+        return "예상 종료 시: \(valueStr)"
+    }
+
+    private func formatTokens(_ n: Int) -> String {
+        if n >= 1_000_000 {
+            return String(format: "%.2fM", Double(n) / 1_000_000.0)
+        } else if n >= 1_000 {
+            return String(format: "%.1fK", Double(n) / 1_000.0)
+        }
+        return "\(n)"
+    }
+
+    private func formatTokensShort(_ n: Int) -> String {
+        if n >= 1_000_000 {
+            return String(format: "%.1fM", Double(n) / 1_000_000.0)
+        } else if n >= 1_000 {
+            return String(format: "%.0fK", Double(n) / 1_000.0)
+        }
+        return "\(n)"
+    }
+}
+
+// Projection data point
+struct ProjectionPoint: Identifiable {
+    let id = UUID()
+    let time: Date
+    let actual: Double?
+    let projected: Double?
+    let isActual: Bool
+}
+
+// MARK: - Monitor Bar View
+struct MonitorBarView: View {
+    let title: String
+    let icon: String
+    let current: Double
+    let limit: Double
+    let formatValue: (Double) -> String
+    let barColor: Color
+    let warningThreshold: Double
+
+    private var percentage: Double {
+        limit > 0 ? min(current / limit, 1.0) : 0
+    }
+
+    private var isWarning: Bool {
+        percentage >= warningThreshold
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: icon)
+                    .foregroundStyle(barColor)
+                Text(title)
+                    .font(.subheadline.bold())
+                Spacer()
+                Text("\(String(format: "%.1f%%", percentage * 100))")
+                    .font(.caption.monospaced())
+                    .foregroundStyle(isWarning ? .red : .secondary)
+            }
+
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(.quaternary)
+
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(isWarning ? .red : barColor)
+                        .frame(width: max(4, geo.size.width * CGFloat(percentage)))
+                }
+            }
+            .frame(height: 16)
+
+            HStack {
+                Text(formatValue(current))
+                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                Text("/")
+                    .foregroundStyle(.secondary)
+                Text(formatValue(limit))
+                    .font(.system(size: 14, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding()
+        .background(.regularMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+// MARK: - Color Customization View
+struct ColorCustomizationView: View {
+    @Binding var costBarColor: Color
+    @Binding var tokenBarColor: Color
+    @Binding var messageBarColor: Color
+    @Binding var warningColor: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("색상 커스터마이징")
+                .font(.headline)
+
+            VStack(spacing: 12) {
+                ColorPickerRow(title: "비용 바", color: $costBarColor)
+                ColorPickerRow(title: "토큰 바", color: $tokenBarColor)
+                ColorPickerRow(title: "메시지 바", color: $messageBarColor)
+                ColorPickerRow(title: "경고 색상", color: $warningColor)
+            }
+
+            Divider()
+
+            Button("기본값으로 리셋") {
+                costBarColor = .orange
+                tokenBarColor = .green
+                messageBarColor = .blue
+                warningColor = .red
+            }
+            .font(.caption)
+        }
+        .padding()
+        .frame(width: 250)
+    }
+}
+
+struct ColorPickerRow: View {
+    let title: String
+    @Binding var color: Color
+
+    var body: some View {
+        HStack {
+            Text(title)
+                .font(.caption)
+            Spacer()
+            ColorPicker("", selection: $color)
+                .labelsHidden()
+        }
+    }
+}
+
+// MARK: - Claude Plan Extension
+extension ClaudePlan {
+    var costLimit: Double {
+        switch self {
+        case .pro: return 18.0
+        case .max5: return 35.0
+        case .max20: return 140.0
+        }
+    }
+
+    var tokenLimit: Int {
+        switch self {
+        case .pro: return 19_000
+        case .max5: return 88_000
+        case .max20: return 220_000
+        }
+    }
+
+    var messageLimit: Int {
+        switch self {
+        case .pro: return 500
+        case .max5: return 1000
+        case .max20: return 2000
+        }
     }
 }
 
