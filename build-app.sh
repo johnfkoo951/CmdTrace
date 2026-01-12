@@ -1,4 +1,5 @@
 #!/bin/bash
+# Build CmdTrace.app bundle for macOS
 set -e
 
 APP_NAME="CmdTrace"
@@ -64,5 +65,5 @@ cat > "$CONTENTS_DIR/Info.plist" << EOF
 </plist>
 EOF
 
-echo "Built: $APP_DIR"
-echo "To install: cp -r \"$APP_DIR\" /Applications/"
+echo "Build complete: $APP_DIR"
+echo "Install: cp -r \"$APP_DIR\" /Applications/"
