@@ -1,0 +1,46 @@
+# Xcode
+*.xcuserstate
+*.xcworkspace
+xcuserdata/
+DerivedData/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# macOS
+.DS_Store
+*.dSYM.zip
+*.dSYM
+
+# Build artifacts
+*.app
+*.ipa
+*.o
+*.a
+*.dylib
+
+# IDE
+.idea/
+*.xcodeproj/xcuserdata/
+
+# Debug logs
+*.log
+firebase-debug.log
+
+# Secrets & Environment
+.env
+.env.local
+*.pem
+*.p12
+*.key
+
+# Distribution
+*.dmg
+*.pkg
+*.zip
+
+# Test artifacts
+TestResults/
+coverage/
