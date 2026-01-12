@@ -10,6 +10,7 @@ CmdTrace is a session viewer for CLI-based AI coding assistants (Claude Code, Op
 
 - **Language**: Swift 5.9+
 - **UI Framework**: SwiftUI (macOS 14+)
+- **Charts**: Swift Charts (for burn rate visualization)
 - **State Management**: Swift Observation (`@Observable`)
 - **Package Manager**: Swift Package Manager
 - **Data Storage**: JSON files in `~/Library/Application Support/CmdTrace/`
@@ -29,20 +30,41 @@ Sources/
 └── Views/
     ├── ContentView.swift    # Main layout (NavigationSplitView)
     ├── SidebarView.swift    # Session list, tags, search/filter
-    ├── DetailView.swift     # Conversation view, dashboard, AI interaction
+    ├── DetailView.swift     # Conversation view, dashboard, AI interaction, usage tools
     └── SettingsView.swift   # App settings UI
 ```
 
 ## Key Features
 
+### Session Management
 - **Multi-CLI Support**: Claude Code, OpenCode, Antigravity
 - **3 Main Tabs**: Sessions, Dashboard, AI Interaction
 - **Session Organization**: Favorites, pins, custom names, tags
 - **Search**: Full-text + operators (`title:`, `tag:`, `project:`, `content:`)
 - **Tag System**: Nested tags, colors, importance levels
-- **AI Integration**: OpenAI, Anthropic, Gemini, Grok API settings
-- **Obsidian Export**: Vault path configuration
 - **Deep Links**: `cmdtrace://session/{id}`
+
+### Usage Tools (Dashboard)
+- **ccusage Integration**: Daily, Monthly, Blocks views with JSON parsing
+- **claude-monitor Integration**: Execute with plan selection (Pro, Max5, Max20)
+- **Native Monitoring View**: Built-in real-time monitoring without Terminal
+
+### Native Monitoring View
+Real-time usage monitoring inside the app:
+- **Customizable Colors**: ColorPicker for bar colors (cost, token, message, warning)
+- **Auto-refresh**: Configurable intervals (5s, 10s, 30s, 60s)
+- **Usage Bars**: Progress bars with plan limits
+- **Model Distribution**: Color-coded model breakdown
+- **Burn Rate Chart**: Swift Charts-based prediction graph
+  - Token/Cost mode toggle
+  - Projection line based on current burn rate
+  - Limit threshold indicator
+  - Gradient area visualization
+  - Warning for exceeding limits
+
+### AI Integration
+- OpenAI, Anthropic, Gemini, Grok API settings
+- Obsidian vault export configuration
 
 ## Data Paths
 
@@ -56,6 +78,31 @@ App data stored in:
 - `~/Library/Application Support/CmdTrace/tag-database.json`
 - `~/Library/Application Support/CmdTrace/summaries.json`
 
+## External CLI Tools
+
+Optional tools for usage monitoring:
+```bash
+# ccusage (Node.js) - Required for native monitoring
+npm install -g ccusage
+# or use: npx ccusage@latest
+
+# claude-monitor (Python) - Optional TUI monitoring
+pip install claude-monitor
+# or: uv tool install claude-monitor
+```
+
+### ccusage Commands Used
+```bash
+# Native monitoring data source (5-hour block)
+ccusage blocks --active --json --breakdown
+
+# Daily view
+ccusage daily --json --since YYYYMMDD
+
+# Monthly view
+ccusage monthly --json
+```
+
 ## Build & Run
 
 ```bash
@@ -67,6 +114,9 @@ swift build
 
 # Run debug
 swift run
+
+# Deploy to Applications
+cp -r ./build/CmdTrace.app /Applications/
 ```
 
 ## Architecture Notes
@@ -84,6 +134,13 @@ Pre-loads sessions for all CLI tools on startup for instant switching between Cl
 ### Persistence
 All user data (settings, tags, favorites) persisted as JSON. Session metadata is stored separately from the session files themselves (which are read-only).
 
+### CLI Execution from GUI
+When executing CLI tools (ccusage, claude-monitor) from the GUI:
+- Use `/bin/zsh -l -c` to load shell environment
+- Redirect stderr: `2>/dev/null` to avoid JSON parsing errors
+- Use temp files for output to handle large responses
+- Calculate dates in Swift instead of shell subcommands
+
 ## Code Conventions
 
 - Use `@Environment(AppState.self)` for accessing global state in views
@@ -91,9 +148,34 @@ All user data (settings, tags, favorites) persisted as JSON. Session metadata is
 - Prefer `Task { await ... }` for async operations in SwiftUI
 - Use SF Symbols for all icons
 - Follow Apple HIG for macOS app design
+- Import `Charts` for data visualization
+
+## Key View Components (DetailView.swift)
+
+### Usage Section
+- `UsageSection`: Main container for usage tools
+- `UsageTabView`: Tab switcher for ccusage views
+- `UsageOutputView`: Display ccusage results
+
+### Native Monitor
+- `NativeMonitorView`: Main monitoring sheet
+- `MonitorData`: Data model for monitoring state
+- `MonitorBarView`: Reusable progress bar component
+- `BurnRateChartView`: Swift Charts-based prediction graph
+- `ProjectionPoint`: Data point for chart projection
+- `ColorCustomizationView`: Color picker popover
+
+### Enums
+- `ClaudePlan`: Pro, Max5, Max20 with limits
+- `UsageTab`: daily, monthly, blocks
+- `ChartMode`: tokens, cost
 
 ## Keyboard Shortcuts
 
 - `Cmd+R`: Refresh sessions
 - `Cmd+F`: Focus search
 - `Cmd+1/2/3`: Switch tabs (Sessions/Dashboard/AI)
+
+## Version
+
+Current: v2.1.0-alpha
