@@ -45,3 +45,4 @@ firebase-debug.log
 # Test artifacts
 TestResults/
 coverage/
+.playwright-mcp/

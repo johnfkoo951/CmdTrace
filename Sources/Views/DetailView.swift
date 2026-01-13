@@ -144,7 +144,7 @@ struct SessionHeader: View {
                     }
                 }
                 .buttonStyle(.plain)
-                .disabled(isGeneratingTitle || appState.settings.anthropicKey.isEmpty)
+                .disabled(isGeneratingTitle || !appState.settings.hasSummaryProviderKey)
                 .help("Auto-generate title")
                 
                 Spacer()
@@ -850,19 +850,38 @@ struct InspectorPanel: View {
                             .foregroundStyle(.secondary)
                     }
 
-                    if appState.settings.anthropicKey.isEmpty {
-                        Label("설정 → AI에서 API 키를 입력하세요", systemImage: "exclamationmark.triangle.fill")
+                    // Provider selector
+                    HStack {
+                        Text("Provider")
+                            .font(smallFont)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Picker("", selection: Binding(
+                            get: { appState.settings.summaryProvider },
+                            set: { appState.settings.summaryProvider = $0 }
+                        )) {
+                            ForEach(AIProvider.allCases, id: \.self) { provider in
+                                Text(provider.rawValue).tag(provider)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .labelsHidden()
+                        .frame(width: 100)
+                    }
+
+                    if !appState.settings.hasSummaryProviderKey {
+                        Label("\(appState.settings.summaryProviderKeyName) API 키 필요", systemImage: "exclamationmark.triangle.fill")
                             .font(smallFont)
                             .foregroundStyle(.orange)
                     }
-                    
+
                     Button {
                         Task { await generateSummary() }
                     } label: {
                         Label(isGeneratingSummary ? "Generating..." : "Generate Summary", systemImage: "sparkles")
                             .font(labelFont)
                     }
-                    .disabled(isGeneratingSummary || appState.settings.anthropicKey.isEmpty)
+                    .disabled(isGeneratingSummary || !appState.settings.hasSummaryProviderKey)
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
                     .padding(.top, 4)

@@ -144,7 +144,21 @@ struct AppSettings: Codable, Equatable {
     var effectiveGrokModel: String {
         useCustomGrokModel && !customGrokModel.isEmpty ? customGrokModel : grokModel
     }
-    
+
+    // Check if selected summary provider has API key
+    var hasSummaryProviderKey: Bool {
+        switch summaryProvider {
+        case .openai: return !openaiKey.isEmpty
+        case .anthropic: return !anthropicKey.isEmpty
+        case .gemini: return !geminiKey.isEmpty
+        case .grok: return !grokKey.isEmpty
+        }
+    }
+
+    var summaryProviderKeyName: String {
+        summaryProvider.rawValue
+    }
+
     // Obsidian
     var obsidianVaultPath: String = ""
     var obsidianPrefix: String = ""
