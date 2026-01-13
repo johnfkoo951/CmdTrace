@@ -2,12 +2,14 @@
 # Build CmdTrace.dmg for distribution
 set -e
 
-SCRIPT_DIR="$(dirname "$0")"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BUILD_DIR="$SCRIPT_DIR/build"
 APP_NAME="CmdTrace"
 APP_PATH="$BUILD_DIR/$APP_NAME.app"
-VERSION=$(defaults read "$APP_PATH/Contents/Info.plist" CFBundleShortVersionString 2>/dev/null || echo "2.0.0")
-BUILD_NUMBER=$(defaults read "$APP_PATH/Contents/Info.plist" CFBundleVersion 2>/dev/null || echo "1")
+
+# Use absolute path for defaults read (relative paths don't work reliably)
+VERSION=$(/usr/bin/defaults read "$APP_PATH/Contents/Info.plist" CFBundleShortVersionString 2>/dev/null || echo "2.0.0")
+BUILD_NUMBER=$(/usr/bin/defaults read "$APP_PATH/Contents/Info.plist" CFBundleVersion 2>/dev/null || echo "1")
 DMG_NAME="${APP_NAME}-${VERSION}-build${BUILD_NUMBER}"
 DMG_PATH="$BUILD_DIR/${DMG_NAME}.dmg"
 VOLUME_NAME="$APP_NAME"
