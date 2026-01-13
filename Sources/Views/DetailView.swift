@@ -1251,32 +1251,39 @@ struct InspectorPanel: View {
             let body: [String: Any] = [
                 "model": appState.settings.effectiveAnthropicModel,
                 "max_tokens": maxTokens,
-                "temperature": temperature,
                 "messages": [["role": "user", "content": prompt]]
             ]
             jsonData = try JSONSerialization.data(withJSONObject: body)
             request = URLRequest(url: url)
             request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
-            request.setValue("2025-01-01", forHTTPHeaderField: "anthropic-version")  // Updated for Claude 4.5+ models
+            request.setValue("2024-10-22", forHTTPHeaderField: "anthropic-version")
 
         case .openai:
             url = URL(string: "https://api.openai.com/v1/chat/completions")!
-            let body: [String: Any] = [
+            // Some newer models (o-series, gpt-5) don't support temperature parameter
+            var body: [String: Any] = [
                 "model": appState.settings.effectiveOpenaiModel,
-                "max_completion_tokens": maxTokens,  // Updated for newer models (o-series, GPT-4o+)
-                "temperature": temperature,
+                "max_completion_tokens": maxTokens,
                 "messages": [["role": "user", "content": prompt]]
             ]
+            // Only add temperature if it's not 1.0 (some models only accept 1.0)
+            let modelName = appState.settings.effectiveOpenaiModel.lowercased()
+            let supportsTemperature = !modelName.contains("o1") && !modelName.contains("o3") && !modelName.hasPrefix("gpt-5")
+            if supportsTemperature {
+                body["temperature"] = temperature
+            }
             jsonData = try JSONSerialization.data(withJSONObject: body)
             request = URLRequest(url: url)
             request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
 
         case .gemini:
             let model = appState.settings.effectiveGeminiModel
-            url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent?key=\(apiKey)")!
+            // Use v1 for stable models, v1beta for preview models
+            let apiVersion = model.contains("preview") ? "v1beta" : "v1beta"
+            url = URL(string: "https://generativelanguage.googleapis.com/\(apiVersion)/models/\(model):generateContent?key=\(apiKey)")!
             let body: [String: Any] = [
                 "contents": [["parts": [["text": prompt]]]],
-                "generationConfig": ["temperature": temperature, "maxOutputTokens": maxTokens]
+                "generationConfig": ["maxOutputTokens": maxTokens]
             ]
             jsonData = try JSONSerialization.data(withJSONObject: body)
             request = URLRequest(url: url)
