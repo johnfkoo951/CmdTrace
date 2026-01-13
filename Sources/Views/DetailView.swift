@@ -713,7 +713,8 @@ struct InspectorPanel: View {
     @State private var newTag = ""
     @State private var isGeneratingSummary = false
     @State private var summaryCopySuccess = false
-    
+    @State private var summaryError: String? = nil
+
     private let labelFont: Font = .system(size: 11)
     private let valueFont: Font = .system(size: 11)
     private let smallFont: Font = .system(size: 10)
@@ -876,6 +877,7 @@ struct InspectorPanel: View {
                     }
 
                     Button {
+                        summaryError = nil
                         Task { await generateSummary() }
                     } label: {
                         Label(isGeneratingSummary ? "Generating..." : "Generate Summary", systemImage: "sparkles")
@@ -885,6 +887,21 @@ struct InspectorPanel: View {
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
                     .padding(.top, 4)
+
+                    // Error display
+                    if let error = summaryError {
+                        HStack(alignment: .top, spacing: 4) {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(.red)
+                            Text(error)
+                                .font(smallFont)
+                                .foregroundStyle(.red)
+                        }
+                        .padding(8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(.red.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                    }
                 }
                 
                 Divider()
@@ -1028,10 +1045,10 @@ struct InspectorPanel: View {
     }
     
     private func addTag() {
-        // Obsidian tag format: no spaces, use - or _ instead
+        // Obsidian tag format: no spaces allowed, only concatenated words
         var tag = newTag.trimmingCharacters(in: .whitespaces)
-        // Replace spaces with hyphens (Obsidian convention)
-        tag = tag.replacingOccurrences(of: " ", with: "-")
+        // Remove all spaces (concatenate words)
+        tag = tag.replacingOccurrences(of: " ", with: "")
         // Remove any invalid characters (keep alphanumeric, -, _, /, Korean)
         tag = tag.filter { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" || $0 == "/" }
 
@@ -1097,14 +1114,34 @@ struct InspectorPanel: View {
         isGeneratingSummary = true
         defer { isGeneratingSummary = false }
 
-        let apiKey = appState.settings.anthropicKey
-        guard !apiKey.isEmpty else { return }
+        let provider = appState.settings.summaryProvider
 
+        // Get API key based on selected provider
+        let apiKey: String
+        switch provider {
+        case .openai: apiKey = appState.settings.openaiKey
+        case .anthropic: apiKey = appState.settings.anthropicKey
+        case .gemini: apiKey = appState.settings.geminiKey
+        case .grok: apiKey = appState.settings.grokKey
+        }
+
+        guard !apiKey.isEmpty else {
+            await MainActor.run { summaryError = "\(provider.rawValue) API 키가 설정되지 않았습니다" }
+            return
+        }
+
+        // Load messages
         let service = SessionService()
         var messages: [Message] = []
         do {
             messages = try await service.loadMessages(for: session, agent: appState.agentType)
         } catch {
+            await MainActor.run { summaryError = "메시지 로드 실패: \(error.localizedDescription)" }
+            return
+        }
+
+        if messages.isEmpty {
+            await MainActor.run { summaryError = "분석할 메시지가 없습니다" }
             return
         }
 
@@ -1112,13 +1149,11 @@ struct InspectorPanel: View {
         let maxMessages = appState.settings.contextMaxMessages
         let maxChars = appState.settings.contextMaxCharsPerMessage
 
-        // Use suffix to get the most recent messages (more relevant for context summary)
         let conversationText = messages.suffix(maxMessages).map { msg in
             let role = msg.role == .user ? "User" : "Assistant"
             return "\(role): \(msg.content.prefix(maxChars))"
         }.joined(separator: "\n\n")
 
-        // Build prompt with user's custom prompt and project info
         let prompt = """
         \(appState.settings.contextPrompt)
 
@@ -1131,80 +1166,174 @@ struct InspectorPanel: View {
         \(conversationText)
         """
 
-        // Use settings for model and parameters
-        let model = appState.settings.effectiveAnthropicModel
         let maxTokens = appState.settings.aiMaxTokens
         let temperature = appState.settings.aiTemperature
 
-        let requestBody: [String: Any] = [
-            "model": model,
-            "max_tokens": maxTokens,
-            "temperature": temperature,
-            "messages": [["role": "user", "content": prompt]]
-        ]
-
-        guard let url = URL(string: "https://api.anthropic.com/v1/messages"),
-              let jsonData = try? JSONSerialization.data(withJSONObject: requestBody) else { return }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
-        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
-        request.httpBody = jsonData
+        // Build request based on provider
+        var request: URLRequest
+        do {
+            request = try buildAPIRequest(provider: provider, apiKey: apiKey, prompt: prompt, maxTokens: maxTokens, temperature: temperature)
+        } catch {
+            await MainActor.run { summaryError = "요청 생성 실패: \(error.localizedDescription)" }
+            return
+        }
 
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
 
-            // Check for HTTP errors
             if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
-                print("API Error: HTTP \(httpResponse.statusCode)")
+                var errorMsg = "HTTP \(httpResponse.statusCode)"
                 if let errorJson = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                    print("Error details: \(errorJson)")
+                    if let error = errorJson["error"] as? [String: Any], let message = error["message"] as? String {
+                        errorMsg = message
+                    } else if let message = errorJson["message"] as? String {
+                        errorMsg = message
+                    }
                 }
+                await MainActor.run { summaryError = "\(provider.rawValue) API 오류: \(errorMsg)" }
                 return
             }
 
-            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let content = json["content"] as? [[String: Any]],
-               let text = content.first?["text"] as? String,
-               let responseData = text.data(using: .utf8),
-               let response = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any] {
+            // Parse response based on provider
+            let responseText = try parseAPIResponse(provider: provider, data: data)
 
-                // 1. Set the generated title
-                if let title = response["title"] as? String {
-                    appState.setSessionName(title, for: session.id)
-                }
-
-                // 2. Add generated tags to session metadata
-                if let tags = response["tags"] as? [String] {
-                    for tag in tags {
-                        let cleanTag = tag.hasPrefix("#") ? String(tag.dropFirst()) : tag
-                        appState.addTag(cleanTag, to: session.id)
-                    }
-                }
-
-                // 3. Save the summary with all generated content
+            // Try to parse as JSON first
+            if let responseData = responseText.data(using: .utf8),
+               let parsedResponse = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any] {
+                await processStructuredResponse(parsedResponse, provider: provider)
+            } else {
+                // Fallback: use raw text as summary
                 let summary = SessionSummary(
                     sessionId: session.id,
-                    summary: response["summary"] as? String ?? "Summary generated",
-                    keyPoints: response["keyPoints"] as? [String] ?? [],
-                    suggestedNextSteps: response["nextSteps"] as? [String] ?? [],
-                    tags: response["tags"] as? [String] ?? [],
+                    summary: responseText,
+                    keyPoints: [],
+                    suggestedNextSteps: [],
+                    tags: [],
                     generatedAt: Date(),
-                    provider: .anthropic
+                    provider: provider
                 )
-                appState.saveSummary(summary)
-
-                // 4. Copy context summary to clipboard
-                if let summaryText = response["summary"] as? String {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(summaryText, forType: .string)
-                }
+                await MainActor.run { appState.saveSummary(summary) }
             }
         } catch {
-            print("API Error: \(error.localizedDescription)")
+            await MainActor.run { summaryError = "네트워크 오류: \(error.localizedDescription)" }
         }
+    }
+
+    private func buildAPIRequest(provider: AIProvider, apiKey: String, prompt: String, maxTokens: Int, temperature: Double) throws -> URLRequest {
+        let url: URL
+        var request: URLRequest
+        let jsonData: Data
+
+        switch provider {
+        case .anthropic:
+            url = URL(string: "https://api.anthropic.com/v1/messages")!
+            let body: [String: Any] = [
+                "model": appState.settings.effectiveAnthropicModel,
+                "max_tokens": maxTokens,
+                "temperature": temperature,
+                "messages": [["role": "user", "content": prompt]]
+            ]
+            jsonData = try JSONSerialization.data(withJSONObject: body)
+            request = URLRequest(url: url)
+            request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
+            request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+
+        case .openai:
+            url = URL(string: "https://api.openai.com/v1/chat/completions")!
+            let body: [String: Any] = [
+                "model": appState.settings.effectiveOpenaiModel,
+                "max_tokens": maxTokens,
+                "temperature": temperature,
+                "messages": [["role": "user", "content": prompt]]
+            ]
+            jsonData = try JSONSerialization.data(withJSONObject: body)
+            request = URLRequest(url: url)
+            request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+
+        case .gemini:
+            let model = appState.settings.effectiveGeminiModel
+            url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent?key=\(apiKey)")!
+            let body: [String: Any] = [
+                "contents": [["parts": [["text": prompt]]]],
+                "generationConfig": ["temperature": temperature, "maxOutputTokens": maxTokens]
+            ]
+            jsonData = try JSONSerialization.data(withJSONObject: body)
+            request = URLRequest(url: url)
+
+        case .grok:
+            url = URL(string: "https://api.x.ai/v1/chat/completions")!
+            let body: [String: Any] = [
+                "model": appState.settings.effectiveGrokModel,
+                "max_tokens": maxTokens,
+                "temperature": temperature,
+                "messages": [["role": "user", "content": prompt]]
+            ]
+            jsonData = try JSONSerialization.data(withJSONObject: body)
+            request = URLRequest(url: url)
+            request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        }
+
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = jsonData
+        return request
+    }
+
+    private func parseAPIResponse(provider: AIProvider, data: Data) throws -> String {
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw NSError(domain: "ParseError", code: 1, userInfo: [NSLocalizedDescriptionKey: "JSON 파싱 실패"])
+        }
+
+        switch provider {
+        case .anthropic:
+            if let content = json["content"] as? [[String: Any]],
+               let text = content.first?["text"] as? String {
+                return text
+            }
+        case .openai, .grok:
+            if let choices = json["choices"] as? [[String: Any]],
+               let message = choices.first?["message"] as? [String: Any],
+               let content = message["content"] as? String {
+                return content
+            }
+        case .gemini:
+            if let candidates = json["candidates"] as? [[String: Any]],
+               let content = candidates.first?["content"] as? [String: Any],
+               let parts = content["parts"] as? [[String: Any]],
+               let text = parts.first?["text"] as? String {
+                return text
+            }
+        }
+
+        throw NSError(domain: "ParseError", code: 2, userInfo: [NSLocalizedDescriptionKey: "응답에서 텍스트를 찾을 수 없음"])
+    }
+
+    @MainActor
+    private func processStructuredResponse(_ response: [String: Any], provider: AIProvider) {
+        // 1. Set the generated title
+        if let title = response["title"] as? String {
+            appState.setSessionName(title, for: session.id)
+        }
+
+        // 2. Add generated tags to session metadata
+        if let tags = response["tags"] as? [String] {
+            for tag in tags {
+                let cleanTag = tag.hasPrefix("#") ? String(tag.dropFirst()) : tag
+                appState.addTag(cleanTag, to: session.id)
+            }
+        }
+
+        // 3. Save the summary
+        let summary = SessionSummary(
+            sessionId: session.id,
+            summary: response["summary"] as? String ?? "Summary generated",
+            keyPoints: response["keyPoints"] as? [String] ?? [],
+            suggestedNextSteps: response["nextSteps"] as? [String] ?? [],
+            tags: response["tags"] as? [String] ?? [],
+            generatedAt: Date(),
+            provider: provider
+        )
+        appState.saveSummary(summary)
     }
     
     private func sendToObsidian() {
