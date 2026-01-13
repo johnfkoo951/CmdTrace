@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en" data-lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CmdTrace - AI Coding Session Viewer for macOS</title>
+    <meta name="description" content="Stop losing your AI conversations. CmdTrace brings order to the chaos of Claude Code, OpenCode, and Antigravity sessions.">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="#" class="nav-logo">
+                <img src="icon.png" alt="CmdTrace" class="logo-icon">
+                <span>CmdTrace</span>
+            </a>
+            <div class="nav-links">
+                <a href="#problem" data-i18n="nav.problem">The Problem</a>
+                <a href="#solution" data-i18n="nav.solution">Solution</a>
+                <a href="#features" data-i18n="nav.features">Features</a>
+                <a href="#download" data-i18n="nav.download">Download</a>
+            </div>
+            <div class="nav-actions">
+                <button class="lang-toggle" onclick="toggleLanguage()" aria-label="Toggle language">
+                    <span class="lang-indicator">EN</span>
+                </button>
+                <a href="#download" class="btn btn-primary btn-sm" data-i18n="nav.getApp">Get the App</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section - The Hook -->
+    <section class="hero">
+        <div class="hero-bg">
+            <div class="gradient-orb orb-1"></div>
+            <div class="gradient-orb orb-2"></div>
+            <div class="gradient-orb orb-3"></div>
+        </div>
+        <div class="container hero-content">
+            <div class="hero-badge">
+                <span class="badge-dot"></span>
+                <span data-i18n="hero.badge">For AI-Powered Developers</span>
+            </div>
+            <h1 class="hero-title">
+                <span data-i18n="hero.title1">"Where was that code</span><br>
+                <span class="gradient-text" data-i18n="hero.title2">Claude wrote for me?"</span>
+            </h1>
+            <p class="hero-subtitle" data-i18n="hero.subtitle">
+                You've had 47 sessions this week. The solution you need is buried somewhere in conversation #23... or was it #31? Stop digging through JSONL files. Start finding what you need.
+            </p>
+            <div class="hero-cta">
+                <a href="#download" class="btn btn-primary btn-lg">
+                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    <span data-i18n="hero.cta1">Download Free</span>
+                </a>
+                <a href="#problem" class="btn btn-secondary btn-lg">
+                    <span data-i18n="hero.cta2">See the Problem</span>
+                    <svg class="btn-icon-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"/>
+                        <polyline points="19 12 12 19 5 12"/>
+                    </svg>
+                </a>
+            </div>
+
+            <!-- Stats -->
+            <div class="hero-stats">
+                <div class="stat-item">
+                    <span class="stat-number">3</span>
+                    <span class="stat-label" data-i18n="hero.stat1">CLI Tools Supported</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-item">
+                    <span class="stat-number">∞</span>
+                    <span class="stat-label" data-i18n="hero.stat2">Sessions Managed</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-item">
+                    <span class="stat-number">0</span>
+                    <span class="stat-label" data-i18n="hero.stat3">Lost Conversations</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Problem Section - Pain Points -->
+    <section id="problem" class="problem-section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-badge red" data-i18n="problem.badge">The Problem</span>
+                <h2 class="section-title" data-i18n="problem.title">Sound familiar?</h2>
+            </div>
+
+            <div class="pain-points">
+                <div class="pain-card">
+                    <div class="pain-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"/>
+                            <path d="m21 21-4.35-4.35"/>
+                            <path d="M11 8v6M8 11h6"/>
+                        </svg>
+                    </div>
+                    <div class="pain-number">01</div>
+                    <h3 data-i18n="problem.p1.title">"I know Claude solved this before..."</h3>
+                    <p data-i18n="problem.p1.desc">You remember the conversation but can't find it. Was it yesterday? Last week? Which project folder?</p>
+                    <div class="pain-scenario">
+                        <code>~/.claude/projects/*/sessions/*.jsonl</code>
+                        <span data-i18n="problem.p1.files">127 files, 2.3GB of conversations</span>
+                    </div>
+                </div>
+
+                <div class="pain-card">
+                    <div class="pain-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                            <path d="M12 18v-6"/>
+                            <path d="m9 15 3 3 3-3"/>
+                        </svg>
+                    </div>
+                    <div class="pain-number">02</div>
+                    <h3 data-i18n="problem.p2.title">"My sessions are everywhere"</h3>
+                    <p data-i18n="problem.p2.desc">Claude Code in one folder, OpenCode in another, Antigravity somewhere else. No unified view, no organization.</p>
+                    <div class="pain-visual">
+                        <div class="folder-tree">
+                            <div class="folder"><span class="folder-icon">📁</span> ~/.claude/</div>
+                            <div class="folder"><span class="folder-icon">📁</span> ~/.opencode/</div>
+                            <div class="folder"><span class="folder-icon">📁</span> ~/.antigravity/</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pain-card">
+                    <div class="pain-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 20h9"/>
+                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                        </svg>
+                    </div>
+                    <div class="pain-number">03</div>
+                    <h3 data-i18n="problem.p3.title">"What was this session about?"</h3>
+                    <p data-i18n="problem.p3.desc">Session names like "01JHHK9X2M..." tell you nothing. You open each one hoping it's the right one.</p>
+                    <div class="pain-visual">
+                        <div class="session-names">
+                            <div class="bad-name">01JHHK9X2MPQR5...</div>
+                            <div class="bad-name">01JHHKB3NWXY7Z...</div>
+                            <div class="bad-name">01JHHKD8KABC12...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="problem-summary">
+                <p data-i18n="problem.summary">
+                    Every day, developers lose <strong>15-30 minutes</strong> searching for past AI conversations. That's <strong>2+ hours per week</strong> of productivity lost.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Solution Section -->
+    <section id="solution" class="solution-section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-badge green" data-i18n="solution.badge">The Solution</span>
+                <h2 class="section-title" data-i18n="solution.title">CmdTrace brings order to chaos</h2>
+                <p class="section-subtitle" data-i18n="solution.subtitle">
+                    A native macOS app that understands how you work with AI coding assistants.
+                </p>
+            </div>
+
+            <div class="solution-showcase">
+                <div class="showcase-window">
+                    <div class="window-header">
+                        <div class="window-controls">
+                            <span class="control close"></span>
+                            <span class="control minimize"></span>
+                            <span class="control maximize"></span>
+                        </div>
+                        <div class="window-tabs">
+                            <span class="tab active">Sessions</span>
+                            <span class="tab">Dashboard</span>
+                            <span class="tab">AI</span>
+                        </div>
+                    </div>
+                    <div class="window-content">
+                        <div class="showcase-sidebar">
+                            <div class="search-box">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="11" cy="11" r="8"/>
+                                    <path d="m21 21-4.35-4.35"/>
+                                </svg>
+                                <span>content:authentication</span>
+                            </div>
+                            <div class="cli-selector">
+                                <div class="cli-option active" data-cli="claude">
+                                    <span class="cli-dot claude"></span>
+                                    Claude Code
+                                </div>
+                                <div class="cli-option" data-cli="opencode">
+                                    <span class="cli-dot opencode"></span>
+                                    OpenCode
+                                </div>
+                            </div>
+                            <div class="session-list-demo">
+                                <div class="session-item-demo starred">
+                                    <div class="session-star">★</div>
+                                    <div class="session-content">
+                                        <div class="session-title">Auth system refactor</div>
+                                        <div class="session-tags">
+                                            <span class="tag blue">backend</span>
+                                            <span class="tag purple">security</span>
+                                        </div>
+                                        <div class="session-date">Today, 2:34 PM</div>
+                                    </div>
+                                </div>
+                                <div class="session-item-demo">
+                                    <div class="session-content">
+                                        <div class="session-title">API rate limiting</div>
+                                        <div class="session-tags">
+                                            <span class="tag green">api</span>
+                                        </div>
+                                        <div class="session-date">Yesterday</div>
+                                    </div>
+                                </div>
+                                <div class="session-item-demo">
+                                    <div class="session-content">
+                                        <div class="session-title">Database migration</div>
+                                        <div class="session-tags">
+                                            <span class="tag orange">database</span>
+                                        </div>
+                                        <div class="session-date">Jan 10</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="showcase-main">
+                            <div class="conversation-header">
+                                <h3>Auth system refactor</h3>
+                                <div class="header-actions">
+                                    <span class="action-btn">📋 Copy</span>
+                                    <span class="action-btn">⬇️ Export</span>
+                                    <span class="action-btn resume">▶️ Resume</span>
+                                </div>
+                            </div>
+                            <div class="conversation-demo">
+                                <div class="msg user">
+                                    <div class="msg-content">Help me implement JWT refresh token rotation</div>
+                                </div>
+                                <div class="msg assistant">
+                                    <div class="msg-content">
+                                        <p>I'll help you implement secure JWT refresh token rotation. Here's the approach:</p>
+                                        <div class="code-block">
+                                            <span class="code-lang">typescript</span>
+                                            <code>async function rotateRefreshToken(oldToken: string) {
+  // Invalidate old token
+  await tokenStore.revoke(oldToken);
+  // Generate new pair
+  return generateTokenPair(user);
+}</code>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Key Benefits -->
+            <div class="benefits-grid">
+                <div class="benefit-card">
+                    <div class="benefit-icon">🔍</div>
+                    <h4 data-i18n="solution.b1.title">Find in Seconds</h4>
+                    <p data-i18n="solution.b1.desc">Search by content, title, tag, or project. No more opening files one by one.</p>
+                </div>
+                <div class="benefit-card">
+                    <div class="benefit-icon">🏷️</div>
+                    <h4 data-i18n="solution.b2.title">Your Organization</h4>
+                    <p data-i18n="solution.b2.desc">Custom names, tags, favorites, and pins. Make sense of your sessions.</p>
+                </div>
+                <div class="benefit-card">
+                    <div class="benefit-icon">⚡</div>
+                    <h4 data-i18n="solution.b3.title">Instant Resume</h4>
+                    <p data-i18n="solution.b3.desc">Jump back into any session with one click. Terminal, iTerm2, or Warp.</p>
+                </div>
+                <div class="benefit-card">
+                    <div class="benefit-icon">📊</div>
+                    <h4 data-i18n="solution.b4.title">Usage Insights</h4>
+                    <p data-i18n="solution.b4.desc">Track your AI usage, costs, and burn rate. Stay within plan limits.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Deep Dive -->
+    <section id="features" class="features-section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-badge" data-i18n="features.badge">Features</span>
+                <h2 class="section-title" data-i18n="features.title">Built for the way you work</h2>
+            </div>
+
+            <!-- Feature 1: Search -->
+            <div class="feature-deep">
+                <div class="feature-content">
+                    <div class="feature-tag" data-i18n="features.f1.tag">SEARCH</div>
+                    <h3 data-i18n="features.f1.title">Find anything, instantly</h3>
+                    <p data-i18n="features.f1.desc">
+                        Powerful search operators let you pinpoint exactly what you need. Combine them for laser-precise results.
+                    </p>
+                    <div class="search-examples">
+                        <div class="search-example">
+                            <code>content:authentication</code>
+                            <span data-i18n="features.f1.ex1">Search inside conversations</span>
+                        </div>
+                        <div class="search-example">
+                            <code>tag:backend project:api</code>
+                            <span data-i18n="features.f1.ex2">Filter by tag and project</span>
+                        </div>
+                        <div class="search-example">
+                            <code>title:refactor date:today</code>
+                            <span data-i18n="features.f1.ex3">Find today's refactoring sessions</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="feature-visual">
+                    <div class="search-demo">
+                        <div class="search-input-demo">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="11" cy="11" r="8"/>
+                                <path d="m21 21-4.35-4.35"/>
+                            </svg>
+                            <span class="typing-text">content:JWT refresh</span>
+                            <span class="cursor">|</span>
+                        </div>
+                        <div class="search-results-demo">
+                            <div class="result-item highlight">
+                                <span class="result-title">Auth system refactor</span>
+                                <span class="result-match">...implement <mark>JWT refresh</mark> token rotation...</span>
+                            </div>
+                            <div class="result-item">
+                                <span class="result-title">Token management</span>
+                                <span class="result-match">...<mark>JWT refresh</mark> strategy for mobile...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feature 2: CLI Support -->
+            <div class="feature-deep reverse">
+                <div class="feature-content">
+                    <div class="feature-tag" data-i18n="features.f2.tag">MULTI-CLI</div>
+                    <h3 data-i18n="features.f2.title">All your AI tools, one place</h3>
+                    <p data-i18n="features.f2.desc">
+                        Switch between Claude Code, OpenCode, and Antigravity instantly. Sessions are pre-cached for zero wait time.
+                    </p>
+                    <div class="cli-list">
+                        <div class="cli-item">
+                            <div class="cli-badge claude">Claude Code</div>
+                            <span class="cli-path">~/.claude/projects/*/sessions/</span>
+                        </div>
+                        <div class="cli-item">
+                            <div class="cli-badge opencode">OpenCode</div>
+                            <span class="cli-path">~/.opencode/sessions/</span>
+                        </div>
+                        <div class="cli-item">
+                            <div class="cli-badge antigravity">Antigravity</div>
+                            <span class="cli-path">~/.antigravity/sessions/</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="feature-visual">
+                    <div class="cli-switcher-demo">
+                        <div class="switcher-header">
+                            <span data-i18n="features.f2.switch">Switch CLI</span>
+                        </div>
+                        <div class="switcher-options">
+                            <div class="switcher-option active">
+                                <span class="dot claude"></span>
+                                <span>Claude Code</span>
+                                <span class="count">47 sessions</span>
+                            </div>
+                            <div class="switcher-option">
+                                <span class="dot opencode"></span>
+                                <span>OpenCode</span>
+                                <span class="count">23 sessions</span>
+                            </div>
+                            <div class="switcher-option">
+                                <span class="dot antigravity"></span>
+                                <span>Antigravity</span>
+                                <span class="count">12 sessions</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feature 3: Dashboard -->
+            <div class="feature-deep">
+                <div class="feature-content">
+                    <div class="feature-tag" data-i18n="features.f3.tag">MONITORING</div>
+                    <h3 data-i18n="features.f3.title">Know your usage, stay in control</h3>
+                    <p data-i18n="features.f3.desc">
+                        Real-time monitoring with burn rate predictions. Never hit your plan limit unexpectedly again.
+                    </p>
+                    <ul class="feature-list">
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span data-i18n="features.f3.l1">Token usage by model (Opus, Sonnet, Haiku)</span>
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span data-i18n="features.f3.l2">Cost tracking with burn rate projection</span>
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span data-i18n="features.f3.l3">Plan limits for Pro, Max5, Max20</span>
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span data-i18n="features.f3.l4">Integrates with ccusage & claude-monitor</span>
+                        </li>
+                    </ul>
+                </div>
+                <div class="feature-visual">
+                    <div class="dashboard-demo">
+                        <div class="dash-header">
+                            <span data-i18n="features.f3.usage">Today's Usage</span>
+                            <span class="plan-badge">Max20</span>
+                        </div>
+                        <div class="usage-bar-demo">
+                            <div class="bar-label">
+                                <span>Tokens</span>
+                                <span>1.2M / 2M</span>
+                            </div>
+                            <div class="bar-track">
+                                <div class="bar-fill" style="width: 60%"></div>
+                                <div class="bar-projection" style="width: 85%"></div>
+                            </div>
+                            <div class="bar-legend">
+                                <span class="current">Current: 60%</span>
+                                <span class="projected">Projected: 85%</span>
+                            </div>
+                        </div>
+                        <div class="model-breakdown">
+                            <div class="model-item">
+                                <span class="model-color opus"></span>
+                                <span>Opus</span>
+                                <span class="model-pct">45%</span>
+                            </div>
+                            <div class="model-item">
+                                <span class="model-color sonnet"></span>
+                                <span>Sonnet</span>
+                                <span class="model-pct">40%</span>
+                            </div>
+                            <div class="model-item">
+                                <span class="model-color haiku"></span>
+                                <span>Haiku</span>
+                                <span class="model-pct">15%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Workflow Section -->
+    <section class="workflow-section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-badge" data-i18n="workflow.badge">How It Works</span>
+                <h2 class="section-title" data-i18n="workflow.title">Get started in 3 steps</h2>
+            </div>
+
+            <div class="workflow-steps">
+                <div class="workflow-step">
+                    <div class="step-number">1</div>
+                    <div class="step-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                    </div>
+                    <h4 data-i18n="workflow.s1.title">Download & Launch</h4>
+                    <p data-i18n="workflow.s1.desc">Install CmdTrace. It automatically finds your AI session folders.</p>
+                </div>
+                <div class="workflow-connector">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
+                </div>
+                <div class="workflow-step">
+                    <div class="step-number">2</div>
+                    <div class="step-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        </svg>
+                    </div>
+                    <h4 data-i18n="workflow.s2.title">Organize Your Way</h4>
+                    <p data-i18n="workflow.s2.desc">Add names, tags, and favorites. AI can auto-generate titles.</p>
+                </div>
+                <div class="workflow-connector">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
+                </div>
+                <div class="workflow-step">
+                    <div class="step-number">3</div>
+                    <div class="step-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"/>
+                            <path d="m21 21-4.35-4.35"/>
+                        </svg>
+                    </div>
+                    <h4 data-i18n="workflow.s3.title">Find & Resume</h4>
+                    <p data-i18n="workflow.s3.desc">Search, browse, and jump back into any session instantly.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Download Section -->
+    <section id="download" class="download-section">
+        <div class="container">
+            <div class="download-card">
+                <div class="download-glow"></div>
+                <div class="download-content">
+                    <div class="download-icon">
+                        <img src="icon.png" alt="CmdTrace">
+                    </div>
+                    <h2 data-i18n="download.title">Stop losing conversations.<br>Start finding them.</h2>
+                    <p data-i18n="download.subtitle">CmdTrace is free and open source. Your data stays on your machine.</p>
+
+                    <div class="download-meta">
+                        <span class="version">v2.1.0-alpha</span>
+                        <span class="separator">•</span>
+                        <span data-i18n="download.requires">macOS 14+</span>
+                        <span class="separator">•</span>
+                        <span data-i18n="download.native">Native SwiftUI</span>
+                    </div>
+
+                    <div class="download-buttons">
+                        <button class="btn btn-primary btn-xl download-btn disabled" disabled>
+                            <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+                            </svg>
+                            <span data-i18n="download.btn">Download for macOS</span>
+                        </button>
+                    </div>
+                    <p class="coming-soon-text" data-i18n="download.coming">Release coming soon. Star the repo to get notified.</p>
+
+                    <div class="build-source">
+                        <span data-i18n="download.build">Build from source:</span>
+                        <div class="code-snippet">
+                            <code>git clone https://github.com/user/cmdtrace</code>
+                            <code>cd cmdtrace && ./build-app.sh</code>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <img src="icon.png" alt="CmdTrace" class="footer-logo">
+                    <div class="footer-brand-text">
+                        <span class="brand-name">CmdTrace</span>
+                        <span class="brand-tagline" data-i18n="footer.tagline">AI Session Viewer for macOS</span>
+                    </div>
+                </div>
+                <div class="footer-links">
+                    <a href="https://github.com/user/cmdtrace" target="_blank" rel="noopener">
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+                            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                        </svg>
+                        GitHub
+                    </a>
+                </div>
+                <div class="footer-copyright">
+                    <span data-i18n="footer.made">Made with</span>
+                    <svg viewBox="0 0 24 24" fill="#ef4444" width="16" height="16">
+                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                    </svg>
+                    <span data-i18n="footer.swiftui">in SwiftUI</span>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -397,50 +397,68 @@ struct SessionHeader: View {
     private func generateTitle() async {
         isGeneratingTitle = true
         defer { isGeneratingTitle = false }
-        
+
         let apiKey = appState.settings.anthropicKey
         guard !apiKey.isEmpty else { return }
-        
+
         // Build conversation context from first few messages
-        let conversationText = messages.prefix(10).map { msg in
+        let conversationText = messages.prefix(20).map { msg in
             let role = msg.role == .user ? "User" : "Assistant"
-            return "\(role): \(msg.content.prefix(300))"
+            return "\(role): \(msg.content.prefix(500))"
         }.joined(separator: "\n\n")
-        
+
         let prompt = """
         이 코딩 세션 대화를 분석하여 다음을 생성해주세요:
 
-        1. 타이틀: 핵심 작업/주제를 담은 간결한 제목 (한국어, 10-20자)
-        2. 컨텍스트 요약: 다음 내용을 포함 (한국어, 2-3문장)
-           - 무슨 작업을 했는지
-           - 어디까지 진행됐는지
-           - 다음에 이어서 할 때 참고할 핵심 맥락
+        ## 생성 항목
 
-        프로젝트: \(session.projectName)
+        1. **타이틀** (title)
+           - 핵심 작업/주제를 담은 간결한 제목
+           - 한국어, 10-25자
+           - 예: "SwiftUI 대시보드 차트 구현", "API 인증 버그 수정"
 
-        대화 내용:
+        2. **태그** (tags)
+           - 세션의 주요 키워드를 태그로 추출
+           - 3-5개의 태그
+           - 기술 스택, 작업 유형, 주요 기능 등 포함
+           - 예: ["SwiftUI", "Charts", "Dashboard", "버그수정"]
+
+        3. **컨텍스트 요약** (summary)
+           - 다음에 이어서 작업할 때 참고할 핵심 맥락
+           - 한국어, 3-5문장
+           - 반드시 포함할 내용:
+             * 무슨 작업을 했는지 (What)
+             * 어디까지 진행됐는지 (Progress)
+             * 주요 결정사항이나 변경점 (Key Changes)
+             * 다음에 해야 할 작업 힌트 (Next)
+
+        ## 프로젝트 정보
+        - 프로젝트: \(session.projectName)
+        - 메시지 수: \(session.messageCount)개
+
+        ## 대화 내용
         \(conversationText)
 
-        JSON 형식으로 응답:
-        {"title": "...", "summary": "..."}
+        ## 응답 형식 (JSON만 출력, 다른 텍스트 없이)
+        {"title": "...", "tags": ["...", "..."], "summary": "..."}
         """
-        
+
         let requestBody: [String: Any] = [
             "model": "claude-3-haiku-20240307",
-            "max_tokens": 512,
+            "max_tokens": 1024,
             "messages": [["role": "user", "content": prompt]]
         ]
 
         guard let url = URL(string: "https://api.anthropic.com/v1/messages"),
               let jsonData = try? JSONSerialization.data(withJSONObject: requestBody) else { return }
-        
+
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
         request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
         request.httpBody = jsonData
-        
+
         do {
             let (data, _) = try await URLSession.shared.data(for: request)
             if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -448,24 +466,33 @@ struct SessionHeader: View {
                let text = content.first?["text"] as? String,
                let responseData = text.data(using: .utf8),
                let response = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any] {
-                
-                // Set the generated title
+
+                // 1. Set the generated title
                 if let title = response["title"] as? String {
                     appState.setSessionName(title, for: session.id)
                 }
-                
-                // Also save the summary if generated
+
+                // 2. Add generated tags to session
+                if let tags = response["tags"] as? [String] {
+                    for tag in tags {
+                        let cleanTag = tag.hasPrefix("#") ? String(tag.dropFirst()) : tag
+                        appState.addTag(cleanTag, to: session.id)
+                    }
+                }
+
+                // 3. Save the summary
                 if let summaryText = response["summary"] as? String {
                     let summary = SessionSummary(
                         sessionId: session.id,
                         summary: summaryText,
                         keyPoints: [],
                         suggestedNextSteps: [],
+                        tags: response["tags"] as? [String] ?? [],
                         generatedAt: Date(),
                         provider: .anthropic
                     )
                     appState.saveSummary(summary)
-                    
+
                     // Copy summary to clipboard
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(summaryText, forType: .string)
@@ -982,73 +1009,84 @@ struct InspectorPanel: View {
     
     private func generateSummary() async {
         isGeneratingSummary = true
-        
+        defer { isGeneratingSummary = false }
+
         let apiKey = appState.settings.anthropicKey
-        guard !apiKey.isEmpty else {
-            isGeneratingSummary = false
-            return
-        }
-        
+        guard !apiKey.isEmpty else { return }
+
         let service = SessionService()
         var messages: [Message] = []
         do {
             messages = try await service.loadMessages(for: session, agent: appState.agentType)
         } catch {
-            isGeneratingSummary = false
             return
         }
-        
+
         let conversationText = messages.prefix(50).map { msg in
             let role = msg.role == .user ? "User" : "Assistant"
             return "\(role): \(msg.content.prefix(500))"
         }.joined(separator: "\n\n")
-        
+
         let prompt = """
-        이 코딩 세션 대화를 분석하여 다음을 한국어로 생성해주세요.
+        이 코딩 세션 대화를 분석하여 다음을 생성해주세요:
 
-        **마크다운 포맷 필수 사용:**
-        - **굵은 글씨**로 핵심 키워드 강조
-        - 불렛포인트(-)로 목록 정리
-        - 위계 구조 활용 (들여쓰기)
-        - 관련 #태그 자유롭게 추가 (예: #버그수정 #SwiftUI #리팩토링)
+        ## 생성 항목
 
-        1. 세션 요약 (2-3문장)
-           - 어떤 작업을 진행했는지
-           - 현재 진행 상황/완료 여부
+        1. **타이틀** (title)
+           - 핵심 작업/주제를 담은 간결한 제목
+           - 한국어, 10-25자
+           - 예: "SwiftUI 대시보드 차트 구현", "API 인증 버그 수정"
 
-        2. 핵심 포인트 (3-5개)
+        2. **태그** (tags)
+           - 세션의 주요 키워드를 태그로 추출
+           - 3-5개의 태그
+           - 기술 스택, 작업 유형, 주요 기능 등 포함
+           - 예: ["SwiftUI", "Charts", "Dashboard", "버그수정"]
+
+        3. **컨텍스트 요약** (summary)
+           - 다음에 이어서 작업할 때 참고할 핵심 맥락
+           - 한국어, 3-5문장
+           - 반드시 포함할 내용:
+             * 무슨 작업을 했는지 (What)
+             * 어디까지 진행됐는지 (Progress)
+             * 주요 결정사항이나 변경점 (Key Changes)
+             * 다음에 해야 할 작업 힌트 (Next)
+
+        4. **핵심 포인트** (keyPoints)
            - 주요 결정사항, 변경된 파일, 해결한 문제 등
+           - 3-5개 항목
 
-        3. 다음 단계 (2-3개)
+        5. **다음 단계** (nextSteps)
            - 이 세션을 이어서 작업할 때 해야 할 것들
-           - 미완료 작업이나 확인 필요한 사항
+           - 2-3개 항목
 
-        대화 내용:
+        ## 프로젝트 정보
+        - 프로젝트: \(session.projectName)
+        - 메시지 수: \(session.messageCount)개
+
+        ## 대화 내용
         \(conversationText)
 
-        JSON 형식으로 응답 (각 값에 마크다운 포맷 포함):
-        {"summary": "...", "keyPoints": ["- **키워드** 설명...", "..."], "nextSteps": ["...", "..."], "tags": ["#태그1", "#태그2"]}
+        ## 응답 형식 (JSON만 출력, 다른 텍스트 없이)
+        {"title": "...", "tags": ["...", "..."], "summary": "...", "keyPoints": ["...", "..."], "nextSteps": ["...", "..."]}
         """
-        
+
         let requestBody: [String: Any] = [
             "model": "claude-3-haiku-20240307",
             "max_tokens": 1024,
             "messages": [["role": "user", "content": prompt]]
         ]
-        
+
         guard let url = URL(string: "https://api.anthropic.com/v1/messages"),
-              let jsonData = try? JSONSerialization.data(withJSONObject: requestBody) else {
-            isGeneratingSummary = false
-            return
-        }
-        
+              let jsonData = try? JSONSerialization.data(withJSONObject: requestBody) else { return }
+
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
         request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
         request.httpBody = jsonData
-        
+
         do {
             let (data, _) = try await URLSession.shared.data(for: request)
             if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -1056,7 +1094,21 @@ struct InspectorPanel: View {
                let text = content.first?["text"] as? String,
                let responseData = text.data(using: .utf8),
                let response = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any] {
-                
+
+                // 1. Set the generated title
+                if let title = response["title"] as? String {
+                    appState.setSessionName(title, for: session.id)
+                }
+
+                // 2. Add generated tags to session metadata
+                if let tags = response["tags"] as? [String] {
+                    for tag in tags {
+                        let cleanTag = tag.hasPrefix("#") ? String(tag.dropFirst()) : tag
+                        appState.addTag(cleanTag, to: session.id)
+                    }
+                }
+
+                // 3. Save the summary with all generated content
                 let summary = SessionSummary(
                     sessionId: session.id,
                     summary: response["summary"] as? String ?? "Summary generated",
@@ -1068,33 +1120,15 @@ struct InspectorPanel: View {
                 )
                 appState.saveSummary(summary)
 
-                // 클립보드에 마크다운 포맷으로 복사
-                var clipboardText = "## 요약\n\(summary.summary)\n\n"
-                if !summary.keyPoints.isEmpty {
-                    clipboardText += "## 핵심 포인트\n" + summary.keyPoints.joined(separator: "\n") + "\n\n"
+                // 4. Copy context summary to clipboard
+                if let summaryText = response["summary"] as? String {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(summaryText, forType: .string)
                 }
-                if !summary.suggestedNextSteps.isEmpty {
-                    clipboardText += "## 다음 단계\n" + summary.suggestedNextSteps.map { "- \($0)" }.joined(separator: "\n") + "\n\n"
-                }
-                if !summary.tags.isEmpty {
-                    clipboardText += "## 태그\n" + summary.tags.joined(separator: " ") + "\n"
-                }
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(clipboardText, forType: .string)
             }
         } catch {
-            let fallbackSummary = SessionSummary(
-                sessionId: session.id,
-                summary: "\(session.displayTitle) 세션. 총 \(session.messageCount)개의 메시지 포함.",
-                keyPoints: ["API 호출 실패 - 기본 요약 사용"],
-                suggestedNextSteps: ["설정에서 API 키 확인"],
-                generatedAt: Date(),
-                provider: .anthropic
-            )
-            appState.saveSummary(fallbackSummary)
+            // Silently fail - user can try again
         }
-        
-        isGeneratingSummary = false
     }
     
     private func sendToObsidian() {
