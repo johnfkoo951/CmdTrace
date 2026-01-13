@@ -234,12 +234,12 @@ struct SessionHeader: View {
         switch appState.selectedCLI {
         case .claude:
             resumeCommand = bypass
-                ? "claude -r \(session.id) --dangerously-skip-permissions"
-                : "claude -r \(session.id)"
+                ? "claude -r \(session.resumeId) --dangerously-skip-permissions"
+                : "claude -r \(session.resumeId)"
         case .opencode:
-            resumeCommand = "opencode -s \(session.id)"
+            resumeCommand = "opencode -s \(session.resumeId)"
         case .antigravity:
-            resumeCommand = "antigravity --resume \(session.id)"
+            resumeCommand = "antigravity --resume \(session.resumeId)"
         }
 
         DispatchQueue.global(qos: .userInitiated).async {
@@ -337,13 +337,59 @@ struct SessionHeader: View {
     private func downloadAsMarkdown() {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.plainText]
-        panel.nameFieldStringValue = "\(session.id).md"
+
+        // Use custom display name with prefix/suffix
+        let displayName = appState.getDisplayName(for: session)
+        let fileName = generateFilename(displayName: displayName)
+        panel.nameFieldStringValue = fileName
+
         panel.begin { response in
             if response == .OK, let url = panel.url {
                 let md = generateMarkdown()
                 try? md.write(to: url, atomically: true, encoding: .utf8)
             }
         }
+    }
+
+    /// Generate filename with prefix, suffix and variable substitution
+    private func generateFilename(displayName: String) -> String {
+        let prefix = appState.settings.obsidianPrefix
+        let suffix = appState.settings.obsidianSuffix
+
+        // Process variables in prefix and suffix
+        let processedPrefix = processFilenameVariables(prefix)
+        let processedSuffix = processFilenameVariables(suffix)
+
+        // Sanitize display name for filename
+        let safeName = displayName
+            .replacingOccurrences(of: "/", with: "-")
+            .replacingOccurrences(of: ":", with: "-")
+            .replacingOccurrences(of: "\\", with: "-")
+            .replacingOccurrences(of: "\"", with: "")
+
+        return "\(processedPrefix)\(safeName)\(processedSuffix).md"
+    }
+
+    /// Process template variables in filename parts
+    private func processFilenameVariables(_ text: String) -> String {
+        var result = text
+
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let dateStr = dateFormatter.string(from: Date())
+
+        let timeFormatter = DateFormatter()
+        timeFormatter.dateFormat = "HH:mm"
+        let timeStr = timeFormatter.string(from: Date())
+
+        result = result.replacingOccurrences(of: "{{date}}", with: dateStr)
+        result = result.replacingOccurrences(of: "{{time}}", with: timeStr)
+        result = result.replacingOccurrences(of: "{{project}}", with: session.projectName)
+        result = result.replacingOccurrences(of: "{{cli}}", with: appState.selectedCLI.rawValue)
+        result = result.replacingOccurrences(of: "{{session}}", with: session.resumeId)
+        result = result.replacingOccurrences(of: "{{messages}}", with: String(session.messageCount))
+
+        return result
     }
     
     private func generateMarkdown() -> String {
@@ -360,8 +406,6 @@ struct SessionHeader: View {
         md += "type: session\n"
         md += "aliases:\n"
         md += "  - \"\(displayName)\"\n"
-        md += "author:\n"
-        md += "  - \"[[구요한]]\"\n"
         md += "date created: \(created)\n"
         md += "date modified: \(now)\n"
         md += "tags:\n"
@@ -628,8 +672,8 @@ struct SectionHeader: View {
 private func executeResumeInspector(_ session: Session, terminal: TerminalType, bypass: Bool) {
     let projectPath = session.project
     let resumeCommand = bypass
-        ? "claude -r \(session.id) --dangerously-skip-permissions"
-        : "claude -r \(session.id)"
+        ? "claude -r \(session.resumeId) --dangerously-skip-permissions"
+        : "claude -r \(session.resumeId)"
 
     DispatchQueue.global(qos: .userInitiated).async {
         switch terminal {
@@ -854,12 +898,8 @@ struct InspectorPanel: View {
                             .foregroundStyle(.secondary)
                     }
 
-                    // Provider selector
+                    // Provider selector + Generate button on same line
                     HStack {
-                        Text("Provider")
-                            .font(smallFont)
-                            .foregroundStyle(.secondary)
-                        Spacer()
                         Picker("", selection: Binding(
                             get: { appState.settings.summaryProvider },
                             set: { appState.settings.summaryProvider = $0 }
@@ -871,6 +911,19 @@ struct InspectorPanel: View {
                         .pickerStyle(.menu)
                         .labelsHidden()
                         .frame(width: 100)
+
+                        Spacer()
+
+                        Button {
+                            summaryError = nil
+                            Task { await generateSummary() }
+                        } label: {
+                            Label(isGeneratingSummary ? "Generating..." : "Generate Summary", systemImage: "sparkles")
+                                .font(labelFont)
+                        }
+                        .disabled(isGeneratingSummary || !appState.settings.hasSummaryProviderKey)
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
                     }
 
                     if !appState.settings.hasSummaryProviderKey {
@@ -878,18 +931,6 @@ struct InspectorPanel: View {
                             .font(smallFont)
                             .foregroundStyle(.orange)
                     }
-
-                    Button {
-                        summaryError = nil
-                        Task { await generateSummary() }
-                    } label: {
-                        Label(isGeneratingSummary ? "Generating..." : "Generate Summary", systemImage: "sparkles")
-                            .font(labelFont)
-                    }
-                    .disabled(isGeneratingSummary || !appState.settings.hasSummaryProviderKey)
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
-                    .padding(.top, 4)
 
                     // Error display
                     if let error = summaryError {
@@ -1256,7 +1297,7 @@ struct InspectorPanel: View {
             jsonData = try JSONSerialization.data(withJSONObject: body)
             request = URLRequest(url: url)
             request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
-            request.setValue("2024-10-22", forHTTPHeaderField: "anthropic-version")
+            request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
 
         case .openai:
             url = URL(string: "https://api.openai.com/v1/chat/completions")!
@@ -1553,31 +1594,30 @@ struct InspectorPanel: View {
             md += "```bash\n"
             md += "# 기본 Resume\n"
             md += "cd \"\(projectPath)\"\n"
-            md += "claude -r \(session.id)\n"
+            md += "claude -r \(session.resumeId)\n"
             md += "```\n\n"
             md += "```bash\n"
             md += "# Bypass 모드 (권한 확인 건너뛰기)\n"
             md += "cd \"\(projectPath)\"\n"
-            md += "claude -r \(session.id) --dangerously-skip-permissions\n"
+            md += "claude -r \(session.resumeId) --dangerously-skip-permissions\n"
             md += "```\n\n"
         case .opencode:
             md += "```bash\n"
             md += "cd \"\(projectPath)\"\n"
-            md += "opencode --resume \(session.id)\n"
+            md += "opencode --resume \(session.resumeId)\n"
             md += "```\n\n"
         case .antigravity:
             md += "```bash\n"
             md += "cd \"\(projectPath)\"\n"
-            md += "antigravity --resume \(session.id)\n"
+            md += "antigravity --resume \(session.resumeId)\n"
             md += "```\n\n"
         }
 
         md += "---\n\n"
         md += "*Exported from CmdTrace*\n"
-        
-        let safeName = displayName.replacingOccurrences(of: "/", with: "-")
-            .replacingOccurrences(of: ":", with: "-")
-        let fileName = "\(safeName).md"
+
+        // Use filename with prefix/suffix
+        let fileName = generateFilename(displayName: displayName)
         let filePath = URL(fileURLWithPath: vaultPath).appendingPathComponent(fileName)
         
         do {
@@ -1587,7 +1627,48 @@ struct InspectorPanel: View {
             print("Failed to write to Obsidian: \(error)")
         }
     }
-    
+
+    /// Generate filename with prefix, suffix and variable substitution
+    private func generateFilename(displayName: String) -> String {
+        let prefix = appState.settings.obsidianPrefix
+        let suffix = appState.settings.obsidianSuffix
+
+        // Process variables in prefix and suffix
+        let processedPrefix = processFilenameVariables(prefix)
+        let processedSuffix = processFilenameVariables(suffix)
+
+        // Sanitize display name for filename
+        let safeName = displayName
+            .replacingOccurrences(of: "/", with: "-")
+            .replacingOccurrences(of: ":", with: "-")
+            .replacingOccurrences(of: "\\", with: "-")
+            .replacingOccurrences(of: "\"", with: "")
+
+        return "\(processedPrefix)\(safeName)\(processedSuffix).md"
+    }
+
+    /// Process template variables in filename parts
+    private func processFilenameVariables(_ text: String) -> String {
+        var result = text
+
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let dateStr = dateFormatter.string(from: Date())
+
+        let timeFormatter = DateFormatter()
+        timeFormatter.dateFormat = "HH:mm"
+        let timeStr = timeFormatter.string(from: Date())
+
+        result = result.replacingOccurrences(of: "{{date}}", with: dateStr)
+        result = result.replacingOccurrences(of: "{{time}}", with: timeStr)
+        result = result.replacingOccurrences(of: "{{project}}", with: session.projectName)
+        result = result.replacingOccurrences(of: "{{cli}}", with: appState.selectedCLI.rawValue)
+        result = result.replacingOccurrences(of: "{{session}}", with: session.resumeId)
+        result = result.replacingOccurrences(of: "{{messages}}", with: String(session.messageCount))
+
+        return result
+    }
+
     private func generateHookmarkLink(for path: String, name: String) -> String? {
         // Check if path exists
         guard FileManager.default.fileExists(atPath: path) else { return nil }

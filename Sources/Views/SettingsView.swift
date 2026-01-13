@@ -234,10 +234,10 @@ struct SettingsView: View {
                                 .font(.caption)
                         } else {
                             Picker("", selection: $state.settings.openaiModel) {
-                                Text("GPT-5.2 (Latest)").tag("gpt-5.2-2025-12-11")
-                                Text("GPT-5 Mini").tag("gpt-5-mini-2025-08-07")
-                                Text("GPT-5 Nano").tag("gpt-5-nano-2025-08-07")
+                                Text("GPT-5.2 (Latest)").tag("gpt-5.2")
+                                Text("GPT-5 Mini").tag("gpt-5-mini")
                             }
+                            .pickerStyle(.menu)
                             .labelsHidden()
                         }
                     }
@@ -284,8 +284,7 @@ struct SettingsView: View {
                                 .font(.caption)
                         } else {
                             Picker("", selection: $state.settings.geminiModel) {
-                                Text("Gemini 3 Flash Preview (Latest)").tag("gemini-3-flash-preview")
-                                Text("Gemini 3 Pro Preview").tag("gemini-3-pro-preview")
+                                Text("Gemini 3 Flash Preview").tag("gemini-3-flash-preview")
                             }
                             .labelsHidden()
                         }
@@ -303,7 +302,7 @@ struct SettingsView: View {
                                 .font(.caption)
                         }
                         if state.settings.useCustomGrokModel {
-                            TextField("Model name (e.g., grok-4-1-fast-reasoning)", text: $state.settings.customGrokModel)
+                            TextField("Model name (e.g., grok-4-fast)", text: $state.settings.customGrokModel)
                                 .textFieldStyle(.roundedBorder)
                                 .font(.caption)
                         } else {

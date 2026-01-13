@@ -127,18 +127,13 @@ Let AI analyze your sessions and generate meaningful titles and summaries. Never
 
 ### Download DMG
 
-Download the latest release from the [Releases](https://github.com/cmdspace/CmdTrace/releases) page.
-
-```
-CmdTrace-2.0.0-alpha-build8.dmg (6.8 MB)
-SHA256: 4a647c409f8fe25ae743af56fdcaf28c9af711cb069fa0587e0177b1c3d59143
-```
+Download the latest release from the [Releases](https://github.com/johnfkoo951/CmdTrace/releases) page.
 
 ### Build from Source
 
 ```bash
 # Clone the repository
-git clone https://github.com/cmdspace/CmdTrace.git
+git clone https://github.com/johnfkoo951/CmdTrace.git
 cd CmdTrace
 
 # Build release app bundle

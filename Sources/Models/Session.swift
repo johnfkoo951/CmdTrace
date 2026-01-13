@@ -78,7 +78,20 @@ struct Session: Identifiable, Codable, Hashable {
         formatter.dateFormat = "M/d"
         return formatter.string(from: lastActivity)
     }
-    
+
+    /// Session ID for resume command (without project folder prefix)
+    var resumeId: String {
+        // Extract from fileName (e.g., "b219c46c-3d27-4bcd-84ae-666c18411ae4.jsonl" -> "b219c46c-3d27-4bcd-84ae-666c18411ae4")
+        if let name = fileName {
+            return name.replacingOccurrences(of: ".jsonl", with: "")
+        }
+        // Fallback: extract from id (e.g., "projectFolder/sessionId" -> "sessionId")
+        if id.contains("/") {
+            return id.components(separatedBy: "/").last ?? id
+        }
+        return id
+    }
+
     enum CodingKeys: String, CodingKey {
         case id = "sessionId"
         case title

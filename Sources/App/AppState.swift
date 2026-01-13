@@ -114,10 +114,10 @@ struct AppSettings: Codable, Equatable {
     var enableSuggestions: Bool = true
 
     // AI Model Settings (Updated for 2026)
-    var openaiModel: String = "gpt-5-mini-2025-08-07"
+    var openaiModel: String = "gpt-5.2"
     var anthropicModel: String = "claude-sonnet-4-5-20250929"
     var geminiModel: String = "gemini-3-flash-preview"
-    var grokModel: String = "grok-4-1-fast-non-reasoning"
+    var grokModel: String = "grok-4-1-fast-reasoning"
     var aiTemperature: Double = 0.7
     var aiMaxTokens: Int = 1024
 
