@@ -1195,7 +1195,10 @@ struct InspectorPanel: View {
             }
 
             // Parse response based on provider
-            let responseText = try parseAPIResponse(provider: provider, data: data)
+            var responseText = try parseAPIResponse(provider: provider, data: data)
+
+            // Extract JSON from markdown code blocks if present
+            responseText = extractJSONFromMarkdown(responseText)
 
             // Try to parse as JSON first
             if let responseData = responseText.data(using: .utf8),
@@ -1242,7 +1245,7 @@ struct InspectorPanel: View {
             url = URL(string: "https://api.openai.com/v1/chat/completions")!
             let body: [String: Any] = [
                 "model": appState.settings.effectiveOpenaiModel,
-                "max_tokens": maxTokens,
+                "max_completion_tokens": maxTokens,  // Updated for newer models (o-series, GPT-4o+)
                 "temperature": temperature,
                 "messages": [["role": "user", "content": prompt]]
             ]
@@ -1306,6 +1309,30 @@ struct InspectorPanel: View {
         }
 
         throw NSError(domain: "ParseError", code: 2, userInfo: [NSLocalizedDescriptionKey: "응답에서 텍스트를 찾을 수 없음"])
+    }
+
+    /// Extract JSON from markdown code blocks (```json ... ``` or ``` ... ```)
+    private func extractJSONFromMarkdown(_ text: String) -> String {
+        var result = text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Pattern 1: ```json ... ```
+        if let jsonMatch = result.range(of: "```json\\s*\\n?", options: .regularExpression),
+           let endMatch = result.range(of: "\\n?```", options: .regularExpression, range: jsonMatch.upperBound..<result.endIndex) {
+            result = String(result[jsonMatch.upperBound..<endMatch.lowerBound])
+        }
+        // Pattern 2: ``` ... ``` (without language specifier)
+        else if result.hasPrefix("```") && result.hasSuffix("```") {
+            result = String(result.dropFirst(3).dropLast(3))
+            // Remove language specifier if on first line
+            if let newlineIndex = result.firstIndex(of: "\n") {
+                let firstLine = String(result[..<newlineIndex]).trimmingCharacters(in: .whitespaces)
+                if firstLine.allSatisfy({ $0.isLetter }) {
+                    result = String(result[result.index(after: newlineIndex)...])
+                }
+            }
+        }
+
+        return result.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     @MainActor

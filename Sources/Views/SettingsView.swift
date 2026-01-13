@@ -292,11 +292,10 @@ struct SettingsView: View {
                                 .font(.caption)
                         } else {
                             Picker("", selection: $state.settings.geminiModel) {
-                                Text("Gemini 3 Pro (Latest)").tag("gemini-3-pro")
-                                Text("Gemini 3 Flash").tag("gemini-3-flash-preview")
+                                Text("Gemini 2.5 Flash (Recommended)").tag("gemini-2.5-flash")
                                 Text("Gemini 2.5 Pro").tag("gemini-2.5-pro")
-                                Text("Gemini 2.5 Flash").tag("gemini-2.5-flash")
                                 Text("Gemini 2.0 Flash").tag("gemini-2.0-flash")
+                                Text("Gemini 2.5 Flash Lite").tag("gemini-2.5-flash-lite")
                             }
                             .labelsHidden()
                         }
