@@ -177,100 +177,16 @@
                 </p>
             </div>
 
+            <!-- Main App Screenshot -->
             <div class="solution-showcase">
-                <div class="showcase-window">
-                    <div class="window-header">
-                        <div class="window-controls">
-                            <span class="control close"></span>
-                            <span class="control minimize"></span>
-                            <span class="control maximize"></span>
-                        </div>
-                        <div class="window-tabs">
-                            <span class="tab active">Sessions</span>
-                            <span class="tab">Dashboard</span>
-                            <span class="tab">AI</span>
-                        </div>
-                    </div>
-                    <div class="window-content">
-                        <div class="showcase-sidebar">
-                            <div class="search-box">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <circle cx="11" cy="11" r="8"/>
-                                    <path d="m21 21-4.35-4.35"/>
-                                </svg>
-                                <span>content:authentication</span>
-                            </div>
-                            <div class="cli-selector">
-                                <div class="cli-option active" data-cli="claude">
-                                    <span class="cli-dot claude"></span>
-                                    Claude Code
-                                </div>
-                                <div class="cli-option" data-cli="opencode">
-                                    <span class="cli-dot opencode"></span>
-                                    OpenCode
-                                </div>
-                            </div>
-                            <div class="session-list-demo">
-                                <div class="session-item-demo starred">
-                                    <div class="session-star">★</div>
-                                    <div class="session-content">
-                                        <div class="session-title">Auth system refactor</div>
-                                        <div class="session-tags">
-                                            <span class="tag blue">backend</span>
-                                            <span class="tag purple">security</span>
-                                        </div>
-                                        <div class="session-date">Today, 2:34 PM</div>
-                                    </div>
-                                </div>
-                                <div class="session-item-demo">
-                                    <div class="session-content">
-                                        <div class="session-title">API rate limiting</div>
-                                        <div class="session-tags">
-                                            <span class="tag green">api</span>
-                                        </div>
-                                        <div class="session-date">Yesterday</div>
-                                    </div>
-                                </div>
-                                <div class="session-item-demo">
-                                    <div class="session-content">
-                                        <div class="session-title">Database migration</div>
-                                        <div class="session-tags">
-                                            <span class="tag orange">database</span>
-                                        </div>
-                                        <div class="session-date">Jan 10</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="showcase-main">
-                            <div class="conversation-header">
-                                <h3>Auth system refactor</h3>
-                                <div class="header-actions">
-                                    <span class="action-btn">📋 Copy</span>
-                                    <span class="action-btn">⬇️ Export</span>
-                                    <span class="action-btn resume">▶️ Resume</span>
-                                </div>
-                            </div>
-                            <div class="conversation-demo">
-                                <div class="msg user">
-                                    <div class="msg-content">Help me implement JWT refresh token rotation</div>
-                                </div>
-                                <div class="msg assistant">
-                                    <div class="msg-content">
-                                        <p>I'll help you implement secure JWT refresh token rotation. Here's the approach:</p>
-                                        <div class="code-block">
-                                            <span class="code-lang">typescript</span>
-                                            <code>async function rotateRefreshToken(oldToken: string) {
-  // Invalidate old token
-  await tokenStore.revoke(oldToken);
-  // Generate new pair
-  return generateTokenPair(user);
-}</code>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                <div class="screenshot-container main-screenshot">
+                    <img src="screenshots/01-main-sessions.png"
+                         alt="CmdTrace main interface showing session list and conversation view"
+                         class="app-screenshot"
+                         loading="lazy">
+                    <div class="screenshot-placeholder" data-image="01">
+                        <span class="placeholder-number">01</span>
+                        <span class="placeholder-text">메인 화면 - 세션 목록 + 대화 내용</span>
                     </div>
                 </div>
             </div>
@@ -333,24 +249,14 @@
                     </div>
                 </div>
                 <div class="feature-visual">
-                    <div class="search-demo">
-                        <div class="search-input-demo">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <circle cx="11" cy="11" r="8"/>
-                                <path d="m21 21-4.35-4.35"/>
-                            </svg>
-                            <span class="typing-text">content:JWT refresh</span>
-                            <span class="cursor">|</span>
-                        </div>
-                        <div class="search-results-demo">
-                            <div class="result-item highlight">
-                                <span class="result-title">Auth system refactor</span>
-                                <span class="result-match">...implement <mark>JWT refresh</mark> token rotation...</span>
-                            </div>
-                            <div class="result-item">
-                                <span class="result-title">Token management</span>
-                                <span class="result-match">...<mark>JWT refresh</mark> strategy for mobile...</span>
-                            </div>
+                    <div class="screenshot-container feature-screenshot">
+                        <img src="screenshots/02-search.png"
+                             alt="CmdTrace search functionality with operators"
+                             class="app-screenshot"
+                             loading="lazy">
+                        <div class="screenshot-placeholder" data-image="02">
+                            <span class="placeholder-number">02</span>
+                            <span class="placeholder-text">검색 기능 - content: 연산자로 검색 중인 화면</span>
                         </div>
                     </div>
                 </div>
@@ -380,26 +286,14 @@
                     </div>
                 </div>
                 <div class="feature-visual">
-                    <div class="cli-switcher-demo">
-                        <div class="switcher-header">
-                            <span data-i18n="features.f2.switch">Switch CLI</span>
-                        </div>
-                        <div class="switcher-options">
-                            <div class="switcher-option active">
-                                <span class="dot claude"></span>
-                                <span>Claude Code</span>
-                                <span class="count">47 sessions</span>
-                            </div>
-                            <div class="switcher-option">
-                                <span class="dot opencode"></span>
-                                <span>OpenCode</span>
-                                <span class="count">23 sessions</span>
-                            </div>
-                            <div class="switcher-option">
-                                <span class="dot antigravity"></span>
-                                <span>Antigravity</span>
-                                <span class="count">12 sessions</span>
-                            </div>
+                    <div class="screenshot-container feature-screenshot">
+                        <img src="screenshots/03-cli-switch.png"
+                             alt="CmdTrace CLI switcher showing multiple AI tools"
+                             class="app-screenshot"
+                             loading="lazy">
+                        <div class="screenshot-placeholder" data-image="03">
+                            <span class="placeholder-number">03</span>
+                            <span class="placeholder-text">CLI 전환 - Claude Code/OpenCode 선택 화면</span>
                         </div>
                     </div>
                 </div>
@@ -433,41 +327,51 @@
                     </ul>
                 </div>
                 <div class="feature-visual">
-                    <div class="dashboard-demo">
-                        <div class="dash-header">
-                            <span data-i18n="features.f3.usage">Today's Usage</span>
-                            <span class="plan-badge">Max20</span>
+                    <div class="screenshot-container feature-screenshot">
+                        <img src="screenshots/04-dashboard.png"
+                             alt="CmdTrace dashboard showing usage statistics"
+                             class="app-screenshot"
+                             loading="lazy">
+                        <div class="screenshot-placeholder" data-image="04">
+                            <span class="placeholder-number">04</span>
+                            <span class="placeholder-text">대시보드 - 사용량 통계, 소진율 그래프</span>
                         </div>
-                        <div class="usage-bar-demo">
-                            <div class="bar-label">
-                                <span>Tokens</span>
-                                <span>1.2M / 2M</span>
-                            </div>
-                            <div class="bar-track">
-                                <div class="bar-fill" style="width: 60%"></div>
-                                <div class="bar-projection" style="width: 85%"></div>
-                            </div>
-                            <div class="bar-legend">
-                                <span class="current">Current: 60%</span>
-                                <span class="projected">Projected: 85%</span>
-                            </div>
-                        </div>
-                        <div class="model-breakdown">
-                            <div class="model-item">
-                                <span class="model-color opus"></span>
-                                <span>Opus</span>
-                                <span class="model-pct">45%</span>
-                            </div>
-                            <div class="model-item">
-                                <span class="model-color sonnet"></span>
-                                <span>Sonnet</span>
-                                <span class="model-pct">40%</span>
-                            </div>
-                            <div class="model-item">
-                                <span class="model-color haiku"></span>
-                                <span>Haiku</span>
-                                <span class="model-pct">15%</span>
-                            </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feature 4: AI Summary -->
+            <div class="feature-deep reverse">
+                <div class="feature-content">
+                    <div class="feature-tag" data-i18n="features.f4.tag">AI POWERED</div>
+                    <h3 data-i18n="features.f4.title">AI-generated summaries</h3>
+                    <p data-i18n="features.f4.desc">
+                        Let AI analyze your sessions and generate meaningful titles and summaries. Never struggle with cryptic session names again.
+                    </p>
+                    <ul class="feature-list">
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span data-i18n="features.f4.l1">Auto-generate session titles from content</span>
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span data-i18n="features.f4.l2">Smart summaries for quick context</span>
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span data-i18n="features.f4.l3">Multiple AI providers supported</span>
+                        </li>
+                    </ul>
+                </div>
+                <div class="feature-visual">
+                    <div class="screenshot-container feature-screenshot">
+                        <img src="screenshots/06-ai-summary.gif"
+                             alt="CmdTrace AI summary generation feature"
+                             class="app-screenshot"
+                             loading="lazy">
+                        <div class="screenshot-placeholder" data-image="06">
+                            <span class="placeholder-number">06</span>
+                            <span class="placeholder-text">AI 요약 - 세션 제목/요약 자동 생성</span>
                         </div>
                     </div>
                 </div>
@@ -527,6 +431,20 @@
                     </div>
                     <h4 data-i18n="workflow.s3.title">Find & Resume</h4>
                     <p data-i18n="workflow.s3.desc">Search, browse, and jump back into any session instantly.</p>
+                </div>
+            </div>
+
+            <!-- Resume Feature Screenshot -->
+            <div class="workflow-demo">
+                <div class="screenshot-container resume-screenshot">
+                    <img src="screenshots/05-resume.gif"
+                         alt="CmdTrace resume session feature in action"
+                         class="app-screenshot"
+                         loading="lazy">
+                    <div class="screenshot-placeholder" data-image="05">
+                        <span class="placeholder-number">05</span>
+                        <span class="placeholder-text">Resume 기능 GIF - 세션 재개 버튼 클릭 → 터미널 열림</span>
+                    </div>
                 </div>
             </div>
         </div>

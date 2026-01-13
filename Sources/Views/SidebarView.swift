@@ -686,17 +686,13 @@ struct TagFilterPills: View {
                         appState.selectedTag = tagInfo.name
                         appState.filterSessions()
                     } label: {
-                        HStack(spacing: 4) {
-                            Circle()
-                                .fill(tagInfo.swiftUIColor)
-                                .frame(width: 6, height: 6)
-                            Text(tagInfo.name)
-                                .font(.caption)
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(tagInfo.swiftUIColor.opacity(0.15))
-                        .clipShape(Capsule())
+                        Text(tagInfo.name)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(tagInfo.swiftUIColor)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(tagInfo.swiftUIColor.opacity(0.15))
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
                     }
                     .buttonStyle(.plain)
                 }
@@ -744,37 +740,42 @@ struct FlowLayout: Layout {
     }
 }
 
-// MARK: - Search Field
+// MARK: - Search Field (Website-inspired)
 struct SearchField: View {
     @Binding var text: String
     @FocusState private var isFocused: Bool
-    
+
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-            
-            TextField("Search...", text: $text)
+                .font(.system(size: 12))
+                .foregroundStyle(isFocused ? .primary : .tertiary)
+
+            TextField("Search sessions...", text: $text)
                 .textFieldStyle(.plain)
-                .font(.subheadline)
+                .font(.system(size: 13))
                 .focused($isFocused)
-            
+
             if !text.isEmpty {
                 Button {
                     text = ""
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 11))
+                        .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .background(.quaternary)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(.fill.opacity(0.5))
         .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(isFocused ? Color.accentColor.opacity(0.5) : .clear, lineWidth: 1)
+        )
+        .animation(.easeInOut(duration: 0.15), value: isFocused)
     }
 }
 
@@ -836,83 +837,92 @@ struct SessionListView: View {
     }
 }
 
-// MARK: - Session Row
+// MARK: - Session Row (Website-inspired design)
 struct SessionRow: View {
     let session: Session
     @Environment(AppState.self) private var appState
     @State private var showRenameSheet = false
     @State private var showTagSheet = false
     @State private var newName = ""
-    
+    @State private var isHovered = false
+
     var isFavorite: Bool { appState.isFavorite(session.id) }
     var isPinned: Bool { appState.isPinned(session.id) }
-    
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            // Row 1: Title + badges
-            HStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
+            // Row 1: Title with favorite star on left + message count badge
+            HStack(spacing: 8) {
+                // Favorite star indicator (prominent, left side like website)
+                if isFavorite {
+                    Image(systemName: "star.fill")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.yellow)
+                }
+
                 if isPinned {
                     Image(systemName: "pin.fill")
                         .font(.system(size: 10))
                         .foregroundStyle(.orange)
                 }
-                
+
                 Text(appState.getDisplayName(for: session))
                     .font(.system(size: 13, weight: .semibold))
                     .lineLimit(1)
-                
-                if isFavorite {
-                    Image(systemName: "star.fill")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.yellow)
-                }
-                
+
                 Spacer()
-                
+
+                // Message count badge (cleaner style)
                 Text("\(session.messageCount)")
-                    .font(.system(size: 11))
+                    .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(.secondary)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(.quaternary)
-                    .clipShape(Capsule())
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(.fill.opacity(0.5))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
             }
-            
-            // Row 2: Preview
+
+            // Row 2: Preview (slightly better contrast)
             Text(session.preview)
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
-            
-            // Row 3: Project + Time info (aligned)
-            HStack(spacing: 6) {
-                Image(systemName: "folder")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.tertiary)
-                Text(session.projectName)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                
+
+            // Row 3: Project + Time info (aligned, cleaner spacing)
+            HStack(spacing: 8) {
+                // Project badge (website style)
+                HStack(spacing: 4) {
+                    Image(systemName: "folder.fill")
+                        .font(.system(size: 9))
+                    Text(session.projectName)
+                        .font(.system(size: 10, weight: .medium))
+                        .lineLimit(1)
+                }
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(.fill.opacity(0.3))
+                .clipShape(RoundedRectangle(cornerRadius: 5))
+
                 Spacer()
-                
-                // Duration badge
+
+                // Duration badge (accent color like website)
                 if let duration = session.duration {
                     Text(duration)
                         .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(.blue)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 2)
-                        .background(.blue.opacity(0.12))
-                        .clipShape(Capsule())
+                        .foregroundStyle(Color(hex: "#6366f1") ?? .blue)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background((Color(hex: "#6366f1") ?? .blue).opacity(0.15))
+                        .clipShape(RoundedRectangle(cornerRadius: 5))
                 }
-                
-                // Time info: date + time range
+
+                // Time info
                 HStack(spacing: 4) {
                     Text(session.shortDate)
                         .font(.system(size: 10))
                         .foregroundStyle(.tertiary)
-                    
+
                     if let startTime = session.startTime {
                         Text("\(startTime)→\(session.lastMessageTime)")
                             .font(.system(size: 10))
@@ -921,35 +931,38 @@ struct SessionRow: View {
                 }
                 .fixedSize()
             }
-            
-            // Row 4: Tags (if any)
+
+            // Row 4: Tags (website-style colored pills)
             let tags = appState.getTags(for: session.id)
             if !tags.isEmpty {
-                HStack(spacing: 4) {
-                    ForEach(tags.prefix(3), id: \.self) { tag in
+                HStack(spacing: 6) {
+                    ForEach(tags.prefix(4), id: \.self) { tag in
                         let tagInfo = appState.tagDatabase[tag]
+                        let tagColor = tagInfo?.swiftUIColor ?? Color(hex: "#6366f1") ?? .blue
                         Button {
                             appState.selectedTag = tag
                             appState.filterSessions()
                         } label: {
                             Text(tag)
-                                .font(.system(size: 9))
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 2)
-                                .background((tagInfo?.swiftUIColor ?? .blue).opacity(0.15))
-                                .clipShape(Capsule())
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(tagColor)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(tagColor.opacity(0.15))
+                                .clipShape(RoundedRectangle(cornerRadius: 5))
                         }
                         .buttonStyle(.plain)
                     }
-                    if tags.count > 3 {
-                        Text("+\(tags.count - 3)")
-                            .font(.system(size: 9))
+                    if tags.count > 4 {
+                        Text("+\(tags.count - 4)")
+                            .font(.system(size: 10))
                             .foregroundStyle(.tertiary)
                     }
                 }
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 6)
+        .padding(.horizontal, 4)
         .contextMenu {
             Button {
                 appState.toggleFavorite(for: session.id)
@@ -1216,45 +1229,51 @@ struct TagSheet: View {
     }
 }
 
-// MARK: - Stats Bar
+// MARK: - Stats Bar (Website-inspired)
 struct StatsBar: View {
     @Environment(AppState.self) private var appState
     @Environment(\.openSettings) private var openSettings
-    
+
     var body: some View {
-        HStack {
+        HStack(spacing: 12) {
+            // Settings button
             Button {
                 openSettings()
             } label: {
-                Image(systemName: "gearshape")
-                    .font(.system(size: 12))
+                Image(systemName: "gearshape.fill")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
             .help("Settings")
-            
+
             Divider()
-                .frame(height: 12)
-            
-            Text("\(appState.filteredSessions.count)")
-                .font(.caption)
-                .fontWeight(.medium)
-            Text("sessions")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            
+                .frame(height: 14)
+
+            // Sessions count badge
+            HStack(spacing: 4) {
+                Image(systemName: "doc.text")
+                    .font(.system(size: 10))
+                Text("\(appState.filteredSessions.count)")
+                    .font(.system(size: 11, weight: .semibold))
+            }
+            .foregroundStyle(.secondary)
+
             Spacer()
-            
+
+            // Total messages badge
             let totalMessages = appState.filteredSessions.reduce(0) { $0 + $1.messageCount }
-            Text("\(totalMessages)")
-                .font(.caption)
-                .fontWeight(.medium)
-            Text("messages")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            HStack(spacing: 4) {
+                Image(systemName: "bubble.left.and.bubble.right")
+                    .font(.system(size: 10))
+                Text("\(totalMessages)")
+                    .font(.system(size: 11, weight: .semibold))
+            }
+            .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .background(.bar)
+        .padding(.vertical, 8)
+        .background(.ultraThinMaterial)
     }
 }
 

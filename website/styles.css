@@ -1737,3 +1737,183 @@ body {
     opacity: 1;
     transform: translateY(0);
 }
+
+/* ============================================
+   Screenshot Containers & Placeholders
+   ============================================ */
+
+.screenshot-container {
+    position: relative;
+    border-radius: 16px;
+    overflow: hidden;
+    background: linear-gradient(145deg, #1a1a2e 0%, #16162a 100%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow:
+        0 25px 50px -12px rgba(0, 0, 0, 0.5),
+        0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.screenshot-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 40px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, transparent 100%);
+    pointer-events: none;
+    z-index: 2;
+}
+
+.app-screenshot {
+    width: 100%;
+    height: auto;
+    display: block;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+/* When image fails to load or is missing, hide it */
+.app-screenshot[src=""],
+.app-screenshot:not([src]) {
+    opacity: 0;
+    position: absolute;
+}
+
+/* Placeholder styling */
+.screenshot-placeholder {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(145deg, #1e1e3f 0%, #151530 100%);
+    border: 2px dashed rgba(99, 102, 241, 0.4);
+    border-radius: 14px;
+    margin: 2px;
+    gap: 12px;
+    min-height: 300px;
+}
+
+.screenshot-placeholder .placeholder-number {
+    font-size: 3rem;
+    font-weight: 800;
+    color: rgba(99, 102, 241, 0.6);
+    line-height: 1;
+}
+
+.screenshot-placeholder .placeholder-text {
+    font-size: 0.95rem;
+    color: rgba(255, 255, 255, 0.5);
+    text-align: center;
+    padding: 0 24px;
+    max-width: 300px;
+}
+
+/* Main screenshot container */
+.main-screenshot {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.main-screenshot .screenshot-placeholder {
+    min-height: 500px;
+}
+
+/* Feature screenshots */
+.feature-screenshot {
+    width: 100%;
+    max-width: 500px;
+}
+
+.feature-screenshot .screenshot-placeholder {
+    min-height: 320px;
+}
+
+/* Resume GIF container */
+.workflow-demo {
+    margin-top: 60px;
+}
+
+.resume-screenshot {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.resume-screenshot .screenshot-placeholder {
+    min-height: 400px;
+}
+
+.resume-screenshot .placeholder-number::after {
+    content: ' GIF';
+    font-size: 1.2rem;
+    color: rgba(236, 72, 153, 0.6);
+}
+
+/* Hide placeholder when image loads successfully */
+.screenshot-container:has(.app-screenshot[src]:not([src=""])) .screenshot-placeholder {
+    display: none;
+}
+
+/* For browsers that don't support :has() - use JS fallback */
+.screenshot-container.has-image .screenshot-placeholder {
+    display: none;
+}
+
+/* Image loading state */
+.app-screenshot.loading {
+    opacity: 0;
+}
+
+.app-screenshot.loaded {
+    opacity: 1;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+    .main-screenshot .screenshot-placeholder {
+        min-height: 400px;
+    }
+
+    .feature-screenshot .screenshot-placeholder {
+        min-height: 280px;
+    }
+
+    .resume-screenshot .screenshot-placeholder {
+        min-height: 350px;
+    }
+}
+
+@media (max-width: 768px) {
+    .screenshot-container {
+        border-radius: 12px;
+    }
+
+    .main-screenshot .screenshot-placeholder {
+        min-height: 300px;
+    }
+
+    .feature-screenshot {
+        max-width: 100%;
+    }
+
+    .feature-screenshot .screenshot-placeholder {
+        min-height: 240px;
+    }
+
+    .resume-screenshot .screenshot-placeholder {
+        min-height: 280px;
+    }
+
+    .screenshot-placeholder .placeholder-number {
+        font-size: 2rem;
+    }
+
+    .screenshot-placeholder .placeholder-text {
+        font-size: 0.85rem;
+    }
+}

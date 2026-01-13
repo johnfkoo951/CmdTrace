@@ -6,7 +6,21 @@ APP_NAME="CmdTrace"
 BUNDLE_ID="com.cmdspace.cmdtrace"
 VERSION="2.0.0-alpha"
 
-BUILD_DIR="$(dirname "$0")/build"
+# Auto-increment build number
+SCRIPT_DIR="$(dirname "$0")"
+BUILD_NUMBER_FILE="$SCRIPT_DIR/.build-number"
+
+if [ -f "$BUILD_NUMBER_FILE" ]; then
+    BUILD_NUMBER=$(cat "$BUILD_NUMBER_FILE")
+    BUILD_NUMBER=$((BUILD_NUMBER + 1))
+else
+    BUILD_NUMBER=1
+fi
+echo "$BUILD_NUMBER" > "$BUILD_NUMBER_FILE"
+
+echo "🔢 Build Number: $BUILD_NUMBER"
+
+BUILD_DIR="$SCRIPT_DIR/build"
 APP_DIR="$BUILD_DIR/$APP_NAME.app"
 CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
@@ -46,7 +60,7 @@ cat > "$CONTENTS_DIR/Info.plist" << EOF
     <key>CFBundleShortVersionString</key>
     <string>$VERSION</string>
     <key>CFBundleVersion</key>
-    <string>5</string>
+    <string>$BUILD_NUMBER</string>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
     <key>NSHighResolutionCapable</key>
@@ -70,5 +84,8 @@ cat > "$CONTENTS_DIR/Info.plist" << EOF
 </plist>
 EOF
 
-echo "Build complete: $APP_DIR"
+echo ""
+echo "✅ Build complete: $APP_DIR"
+echo "📦 Version: $VERSION (Build $BUILD_NUMBER)"
+echo ""
 echo "Install: cp -r \"$APP_DIR\" /Applications/"

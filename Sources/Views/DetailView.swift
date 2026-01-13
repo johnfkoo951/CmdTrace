@@ -401,8 +401,8 @@ struct SessionHeader: View {
         let apiKey = appState.settings.anthropicKey
         guard !apiKey.isEmpty else { return }
 
-        // Build conversation context from first few messages
-        let conversationText = messages.prefix(20).map { msg in
+        // Build conversation context from most recent messages
+        let conversationText = messages.suffix(20).map { msg in
             let role = msg.role == .user ? "User" : "Assistant"
             return "\(role): \(msg.content.prefix(500))"
         }.joined(separator: "\n\n")
@@ -829,20 +829,36 @@ struct InspectorPanel: View {
                     if !tags.isEmpty {
                         FlowLayout(spacing: 4) {
                             ForEach(tags, id: \.self) { tag in
+                                let tagInfo = appState.tagDatabase[tag]
+                                let tagColor = tagInfo?.swiftUIColor ?? .blue
                                 HStack(spacing: 3) {
-                                    Text(tag)
-                                        .font(smallFont)
+                                    // Clickable tag name - filters sessions
+                                    Button {
+                                        appState.selectedTag = tag
+                                        appState.sidebarViewMode = .list
+                                        appState.filterSessions()
+                                    } label: {
+                                        Text(tag)
+                                            .font(smallFont)
+                                            .foregroundStyle(tagColor)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .help("Filter by this tag")
+
+                                    // Remove button
                                     Button {
                                         appState.removeTag(tag, from: session.id)
                                     } label: {
                                         Image(systemName: "xmark.circle.fill")
                                             .font(.system(size: 9))
+                                            .foregroundStyle(.secondary)
                                     }
                                     .buttonStyle(.plain)
+                                    .help("Remove tag")
                                 }
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 3)
-                                .background(.blue.opacity(0.15))
+                                .background(tagColor.opacity(0.15))
                                 .clipShape(Capsule())
                             }
                         }
@@ -1022,53 +1038,27 @@ struct InspectorPanel: View {
             return
         }
 
-        let conversationText = messages.prefix(50).map { msg in
+        // Use settings for source content range
+        let maxMessages = appState.settings.contextMaxMessages
+        let maxChars = appState.settings.contextMaxCharsPerMessage
+
+        // Use suffix to get the most recent messages (more relevant for context summary)
+        let conversationText = messages.suffix(maxMessages).map { msg in
             let role = msg.role == .user ? "User" : "Assistant"
-            return "\(role): \(msg.content.prefix(500))"
+            return "\(role): \(msg.content.prefix(maxChars))"
         }.joined(separator: "\n\n")
 
+        // Build prompt with user's custom prompt and project info
         let prompt = """
-        이 코딩 세션 대화를 분석하여 다음을 생성해주세요:
-
-        ## 생성 항목
-
-        1. **타이틀** (title)
-           - 핵심 작업/주제를 담은 간결한 제목
-           - 한국어, 10-25자
-           - 예: "SwiftUI 대시보드 차트 구현", "API 인증 버그 수정"
-
-        2. **태그** (tags)
-           - 세션의 주요 키워드를 태그로 추출
-           - 3-5개의 태그
-           - 기술 스택, 작업 유형, 주요 기능 등 포함
-           - 예: ["SwiftUI", "Charts", "Dashboard", "버그수정"]
-
-        3. **컨텍스트 요약** (summary)
-           - 다음에 이어서 작업할 때 참고할 핵심 맥락
-           - 한국어, 3-5문장
-           - 반드시 포함할 내용:
-             * 무슨 작업을 했는지 (What)
-             * 어디까지 진행됐는지 (Progress)
-             * 주요 결정사항이나 변경점 (Key Changes)
-             * 다음에 해야 할 작업 힌트 (Next)
-
-        4. **핵심 포인트** (keyPoints)
-           - 주요 결정사항, 변경된 파일, 해결한 문제 등
-           - 3-5개 항목
-
-        5. **다음 단계** (nextSteps)
-           - 이 세션을 이어서 작업할 때 해야 할 것들
-           - 2-3개 항목
+        \(appState.settings.contextPrompt)
 
         ## 프로젝트 정보
         - 프로젝트: \(session.projectName)
         - 메시지 수: \(session.messageCount)개
+        - 분석 범위: 최근 \(min(messages.count, maxMessages))개 메시지 (각 \(maxChars)자 제한)
 
         ## 대화 내용
         \(conversationText)
-
-        ## 응답 형식 (JSON만 출력, 다른 텍스트 없이)
-        {"title": "...", "tags": ["...", "..."], "summary": "...", "keyPoints": ["...", "..."], "nextSteps": ["...", "..."]}
         """
 
         let requestBody: [String: Any] = [

@@ -5,85 +5,134 @@
 </p>
 
 <p align="center">
-  <strong>macOS native session viewer for AI CLI coding assistants</strong>
+  <strong>Stop losing your AI conversations.<br>Start finding them.</strong>
+</p>
+
+<p align="center">
+  macOS native session viewer for AI CLI coding assistants
 </p>
 
 <p align="center">
   <a href="#features">Features</a> •
+  <a href="#screenshots">Screenshots</a> •
   <a href="#installation">Installation</a> •
-  <a href="#usage">Usage</a> •
-  <a href="#keyboard-shortcuts">Shortcuts</a> •
-  <a href="#license">License</a>
+  <a href="#search-queries">Search Queries</a> •
+  <a href="#settings">Settings</a> •
+  <a href="#keyboard-shortcuts">Shortcuts</a>
 </p>
 
 ---
 
-## Overview
+## The Problem
 
-CmdTrace is a macOS native SwiftUI application for viewing and managing AI CLI agent conversation histories. It reads JSONL conversation logs from Claude Code, OpenCode, and Antigravity, providing a rich interface for browsing, organizing, and analyzing coding sessions.
+*"I know Claude solved this before..."*
+
+You've had 47 sessions this week. The solution you need is buried somewhere in conversation #23... or was it #31? Session names like `01JHHK9X2MPQR5...` tell you nothing.
+
+```
+~/.claude/projects/*/sessions/*.jsonl
+127 files, 2.3GB of conversations
+```
+
+Every day, developers lose **15-30 minutes** searching for past AI conversations. That's **2+ hours per week** of productivity lost.
+
+## The Solution
+
+**CmdTrace brings order to chaos.** A native macOS app that understands how you work with AI coding assistants.
+
+---
 
 ## Features
 
-### Session Management
-- **Multi-CLI Support**: Claude Code, OpenCode, Antigravity
-- **Session Organization**: Favorites, pins, custom names, tags
-- **Full-text Search**: With operators (`title:`, `tag:`, `project:`, `content:`)
-- **Deep Links**: `cmdtrace://session/{id}` for quick access
+### 🔍 Find Anything, Instantly
 
-### Dashboard
-- **Session Statistics**: Total sessions, messages, tokens overview
-- **Activity Calendar**: GitHub-style contribution heatmap
-- **Model Distribution**: Visualize usage across AI models
+Powerful search operators let you pinpoint exactly what you need. Combine them for laser-precise results.
 
-### Usage Tools Integration
-
-CmdTrace integrates with popular usage monitoring tools:
-
-#### ccusage Support
-- Daily, Monthly, Weekly reports
-- 5-hour billing blocks view
-- JSON output parsing
-- Model breakdown analysis
-
-#### Native Monitoring View (Built-in)
-Real-time monitoring without leaving the app:
-- **Customizable Colors**: Adjust bar colors to your preference
-- **Auto-refresh**: 5s, 10s, 30s, 60s intervals
-- **Usage Bars**: Cost, Token, Message usage with limits
-- **Model Distribution**: Visual breakdown by model
-- **Burn Rate Chart**: Interactive prediction graph
-  - Token/Cost mode toggle
-  - Projection to block end
-  - Limit warning indicators
-  - Gradient area visualization
-
-#### claude-monitor Support
-- Execute directly from CmdTrace
-- Plan selection (Pro, Max5, Max20)
-- View modes (Realtime, Daily, Monthly)
-
-### AI Integration
-- OpenAI, Anthropic, Gemini, Grok API settings
-- Obsidian vault export configuration
-
-## Requirements
-
-- macOS 14.0 (Sonoma) or later
-- Swift 5.9+
-
-### Optional CLI Tools
-For usage monitoring features:
-```bash
-# ccusage (Node.js)
-npm install -g ccusage
-# or use npx ccusage@latest
-
-# claude-monitor (Python)
-pip install claude-monitor
-# or uv tool install claude-monitor
+```
+content:authentication          # Search inside conversations
+tag:backend project:api         # Filter by tag and project
+title:refactor date:today       # Find today's refactoring sessions
 ```
 
+### 🔄 Multi-CLI Support
+
+Switch between Claude Code, OpenCode, and Antigravity instantly. Sessions are pre-cached for zero wait time.
+
+| CLI Tool | Session Path |
+|----------|--------------|
+| **Claude Code** | `~/.claude/projects/*/sessions/` |
+| **OpenCode** | `~/.opencode/sessions/` |
+| **Antigravity** | `~/.antigravity/sessions/` |
+
+### 🏷️ Your Organization
+
+- **Custom Names**: Give sessions meaningful titles
+- **Tags**: Nested tags with colors and importance levels
+- **Favorites & Pins**: Quick access to important sessions
+- **Deep Links**: `cmdtrace://session/{id}` for quick access
+
+### ⚡ Instant Resume
+
+Jump back into any session with one click. Supports Terminal, iTerm2, and Warp.
+
+### 📊 Usage Monitoring
+
+Real-time monitoring with burn rate predictions. Never hit your plan limit unexpectedly again.
+
+- Token usage by model (Opus, Sonnet, Haiku)
+- Cost tracking with burn rate projection
+- Plan limits for Pro, Max5, Max20
+- Integrates with ccusage & claude-monitor
+
+### 🤖 AI-Powered Summaries
+
+Let AI analyze your sessions and generate meaningful titles and summaries. Never struggle with cryptic session names again.
+
+- Auto-generate session titles from content
+- Smart summaries with key points
+- Tag suggestions based on content
+- Configurable context window and prompts
+
+---
+
+## Screenshots
+
+### Main Interface
+![Main Sessions View](website/screenshots/01-main-sessions.png)
+*Session list with conversation preview, tags, and organization tools*
+
+### Powerful Search
+![Search Feature](website/screenshots/02-search.png)
+*Search with operators: content:, title:, tag:, project:, date:*
+
+### Multi-CLI Support
+![CLI Switcher](website/screenshots/03-cli-switch.png)
+*Instantly switch between Claude Code, OpenCode, and Antigravity*
+
+### Usage Dashboard
+![Dashboard](website/screenshots/04-dashboard.png)
+*Real-time usage monitoring with burn rate predictions*
+
+### Instant Resume
+![Resume Session](website/screenshots/05-resume.gif)
+*One-click resume to Terminal, iTerm2, or Warp*
+
+### AI Summary Generation
+![AI Summary](website/screenshots/06-ai-summary.gif)
+*AI-generated titles, summaries, and tag suggestions*
+
+---
+
 ## Installation
+
+### Download DMG
+
+Download the latest release from the [Releases](https://github.com/cmdspace/CmdTrace/releases) page.
+
+```
+CmdTrace-2.0.0-alpha-build8.dmg (6.8 MB)
+SHA256: 4a647c409f8fe25ae743af56fdcaf28c9af711cb069fa0587e0177b1c3d59143
+```
 
 ### Build from Source
 
@@ -99,6 +148,16 @@ cd CmdTrace
 cp -r ./build/CmdTrace.app /Applications/
 ```
 
+### Build DMG
+
+```bash
+# Build app first
+./build-app.sh
+
+# Create distributable DMG
+./build-dmg.sh
+```
+
 ### Run in Development
 
 ```bash
@@ -106,68 +165,247 @@ swift build
 swift run
 ```
 
-## Usage
+---
 
-### Data Paths
+## Search Queries
 
-Session logs are read from:
-- **Claude Code**: `~/.claude/projects/*/sessions/*.jsonl`
-- **OpenCode**: `~/.opencode/sessions/*.jsonl`
+CmdTrace supports powerful search operators to find sessions quickly.
 
-App data stored in:
-- `~/Library/Application Support/CmdTrace/settings.json`
-- `~/Library/Application Support/CmdTrace/session-metadata.json`
-- `~/Library/Application Support/CmdTrace/tag-database.json`
+### Basic Search
 
-### Using the Native Monitor
+| Query | Description |
+|-------|-------------|
+| `authentication` | Full-text search in titles and content |
+| `"error handling"` | Exact phrase search |
 
-1. Go to Dashboard tab
-2. Find "Usage Tools" section
+### Search Operators
+
+| Operator | Example | Description |
+|----------|---------|-------------|
+| `content:` | `content:useState` | Search inside conversation messages |
+| `title:` | `title:refactor` | Search session titles only |
+| `tag:` | `tag:backend` | Filter by tag |
+| `project:` | `project:api-server` | Filter by project name |
+| `date:` | `date:today` | Filter by date |
+
+### Date Filters
+
+| Filter | Description |
+|--------|-------------|
+| `date:today` | Sessions from today |
+| `date:yesterday` | Sessions from yesterday |
+| `date:week` | Sessions from this week |
+| `date:month` | Sessions from this month |
+
+### Combined Queries
+
+```bash
+# Find backend API work from today
+tag:backend project:api date:today
+
+# Search for authentication-related refactoring
+content:authentication title:refactor
+
+# Find React hook implementations tagged as important
+content:useState tag:important
+```
+
+---
+
+## Settings
+
+### General Settings
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| **CLI Tool** | Active CLI tool (Claude Code, OpenCode, Antigravity) | Claude Code |
+| **Theme** | Light/Dark/System | System |
+| **Default Tab** | Starting tab on launch | Sessions |
+| **Auto-refresh** | Refresh sessions on app focus | Enabled |
+
+### Terminal Settings
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| **Terminal App** | Terminal for session resume | Terminal.app |
+| **Options** | iTerm2, Warp, Terminal | - |
+
+### AI Provider Settings
+
+Configure API keys for AI-powered features (title/summary generation):
+
+| Provider | Key Setting | Models |
+|----------|-------------|--------|
+| **Anthropic** | Anthropic API Key | Claude 3 Haiku (default) |
+| **OpenAI** | OpenAI API Key | GPT-4o, GPT-4o-mini |
+| **Google** | Gemini API Key | Gemini Pro |
+| **xAI** | Grok API Key | Grok |
+
+### Context Summary Settings
+
+Configure how AI generates summaries:
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| **Max Messages** | Number of recent messages to analyze | 50 |
+| **Max Chars/Message** | Character limit per message | 500 |
+| **Context Prompt** | Custom prompt for AI summary generation | (Built-in template) |
+
+### Usage Monitoring Settings
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| **Plan Type** | Claude plan (Pro, Max5, Max20) | Pro |
+| **Auto-refresh Interval** | Monitoring refresh rate | 30s |
+| **ccusage Path** | Path to ccusage binary | Auto-detect |
+
+### Color Customization
+
+Customize the native monitoring view colors:
+
+| Element | Description |
+|---------|-------------|
+| **Cost Bar** | Cost usage progress bar |
+| **Token Bar** | Token usage progress bar |
+| **Message Bar** | Message count progress bar |
+| **Warning** | Warning/limit exceeded indicator |
+
+---
+
+## Usage Tools Integration
+
+CmdTrace integrates with popular usage monitoring tools.
+
+### ccusage (Required for Native Monitoring)
+
+```bash
+# Install globally
+npm install -g ccusage
+
+# Or use npx
+npx ccusage@latest
+```
+
+**Commands used by CmdTrace:**
+
+```bash
+# Native monitoring data (5-hour block)
+ccusage blocks --active --json --breakdown
+
+# Daily view
+ccusage daily --json --since YYYYMMDD
+
+# Monthly view
+ccusage monthly --json
+```
+
+### claude-monitor (Optional TUI)
+
+```bash
+# Install with pip
+pip install claude-monitor
+
+# Or with uv
+uv tool install claude-monitor
+```
+
+### Native Monitoring View
+
+Built-in real-time monitoring without Terminal:
+
+1. Go to **Dashboard** tab
+2. Find **Usage Tools** section
 3. Click menu button (•••)
-4. Select "Native Monitoring" (내장 모니터링)
+4. Select **Native Monitoring**
 
-Features:
-- Toggle between Token and Cost views in the chart
-- Click the palette icon to customize colors
-- Set auto-refresh interval
-- View burn rate predictions
+**Features:**
+- Toggle between Token and Cost views
+- Click palette icon to customize colors
+- Set auto-refresh interval (5s, 10s, 30s, 60s)
+- View burn rate predictions with Swift Charts
+
+---
 
 ## Keyboard Shortcuts
 
 | Shortcut | Action |
 |----------|--------|
-| `Cmd+R` | Refresh sessions |
-| `Cmd+F` | Focus search |
-| `Cmd+1` | Sessions tab |
-| `Cmd+2` | Dashboard tab |
-| `Cmd+3` | AI Interaction tab |
+| `⌘R` | Refresh sessions |
+| `⌘F` | Focus search |
+| `⌘1` | Sessions tab |
+| `⌘2` | Dashboard tab |
+| `⌘3` | AI Interaction tab |
+| `⌘,` | Open Settings |
+
+---
+
+## Data Paths
+
+### Session Logs (Read-only)
+
+| CLI Tool | Path |
+|----------|------|
+| Claude Code | `~/.claude/projects/*/sessions/*.jsonl` |
+| OpenCode | `~/.opencode/sessions/*.jsonl` |
+| Antigravity | `~/.antigravity/sessions/*.jsonl` |
+
+### App Data
+
+| File | Description |
+|------|-------------|
+| `~/Library/Application Support/CmdTrace/settings.json` | App settings |
+| `~/Library/Application Support/CmdTrace/session-metadata.json` | Custom names, favorites |
+| `~/Library/Application Support/CmdTrace/tag-database.json` | Tag definitions |
+| `~/Library/Application Support/CmdTrace/summaries.json` | AI-generated summaries |
+
+---
 
 ## Project Structure
 
 ```
 Sources/
 ├── App/
-│   ├── CmdTraceApp.swift    # App entry point
-│   └── AppState.swift       # Global state (@Observable)
+│   ├── CmdTraceApp.swift       # App entry point, window/menu config
+│   └── AppState.swift          # Global state (@Observable), settings
 ├── Models/
-│   ├── Session.swift        # Session data model
-│   └── Message.swift        # Message models
+│   ├── Session.swift           # Session data model
+│   └── Message.swift           # Message/conversation models
 ├── Services/
-│   └── SessionService.swift # JSONL parsing
+│   └── SessionService.swift    # JSONL file parsing, session loading
 └── Views/
-    ├── ContentView.swift    # Main layout
-    ├── SidebarView.swift    # Session list
-    ├── DetailView.swift     # Conversation view, dashboard
-    └── SettingsView.swift   # App settings
+    ├── ContentView.swift       # Main layout (NavigationSplitView)
+    ├── SidebarView.swift       # Session list, tags, search/filter
+    ├── DetailView.swift        # Conversation view, dashboard, AI
+    └── SettingsView.swift      # App settings UI
+
+website/
+├── index.html                  # Product landing page
+├── styles.css                  # Website styles
+├── script.js                   # Interactive features
+└── screenshots/                # App screenshots and GIFs
 ```
+
+---
 
 ## Tech Stack
 
 - **Language**: Swift 5.9+
-- **UI Framework**: SwiftUI
-- **State Management**: Swift Observation (`@Observable`)
+- **UI Framework**: SwiftUI (macOS 14+)
 - **Charts**: Swift Charts
+- **State Management**: Swift Observation (`@Observable`)
 - **Package Manager**: Swift Package Manager
+- **Data Storage**: JSON files
+
+---
+
+## Requirements
+
+- **macOS**: 14.0 (Sonoma) or later
+- **Swift**: 5.9+
+- **Optional**: ccusage (for native monitoring)
+- **Optional**: claude-monitor (for TUI monitoring)
+
+---
 
 ## License
 
@@ -175,6 +413,14 @@ Copyright (c) 2025 CMDSPACE. All Rights Reserved.
 
 This is proprietary software. See [LICENSE](LICENSE) for details.
 
+---
+
 ## Contact
 
 For licensing inquiries: johnfkoo951@gmail.com
+
+---
+
+<p align="center">
+  Made with ❤️ in SwiftUI
+</p>

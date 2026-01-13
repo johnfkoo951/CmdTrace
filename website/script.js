@@ -69,6 +69,12 @@ const translations = {
         'features.f3.l3': 'Plan limits for Pro, Max5, Max20',
         'features.f3.l4': 'Integrates with ccusage & claude-monitor',
         'features.f3.usage': "Today's Usage",
+        'features.f4.tag': 'AI POWERED',
+        'features.f4.title': 'AI-generated summaries',
+        'features.f4.desc': 'Let AI analyze your sessions and generate meaningful titles and summaries. Never struggle with cryptic session names again.',
+        'features.f4.l1': 'Auto-generate session titles from content',
+        'features.f4.l2': 'Smart summaries for quick context',
+        'features.f4.l3': 'Multiple AI providers supported',
 
         // Workflow Section
         'workflow.badge': 'How It Works',
@@ -159,6 +165,12 @@ const translations = {
         'features.f3.l3': 'Pro, Max5, Max20 플랜 한도',
         'features.f3.l4': 'ccusage & claude-monitor 연동',
         'features.f3.usage': '오늘의 사용량',
+        'features.f4.tag': 'AI 기능',
+        'features.f4.title': 'AI가 만드는 요약',
+        'features.f4.desc': 'AI가 세션을 분석해 의미 있는 제목과 요약을 생성합니다. 더 이상 알 수 없는 세션 이름으로 고민할 필요 없어요.',
+        'features.f4.l1': '내용 기반 세션 제목 자동 생성',
+        'features.f4.l2': '빠른 파악을 위한 스마트 요약',
+        'features.f4.l3': '다양한 AI 제공자 지원',
 
         // Workflow Section
         'workflow.badge': '사용 방법',

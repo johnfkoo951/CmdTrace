@@ -218,14 +218,84 @@ struct SettingsView: View {
                 
                 Section("Reminders") {
                     Toggle("Enable Session Reminders", isOn: $state.settings.enableReminders)
-                    
+
                     Stepper("Reminder after \(state.settings.reminderHours) hours", value: $state.settings.reminderHours, in: 1...168)
-                    
+
                     Text("When enabled, you'll receive a notification about sessions you haven't revisited within the specified time. This helps you remember to follow up on ongoing work.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    
+
                     Toggle("Enable AI Suggestions", isOn: $state.settings.enableSuggestions)
+                }
+
+                Section("Context Summary Settings") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Source Content Range")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+
+                        HStack {
+                            Text("Max Messages:")
+                                .font(.caption)
+                            Stepper("\(state.settings.contextMaxMessages)", value: $state.settings.contextMaxMessages, in: 10...200, step: 10)
+                                .frame(width: 100)
+                        }
+
+                        HStack {
+                            Text("Max Chars/Message:")
+                                .font(.caption)
+                            Stepper("\(state.settings.contextMaxCharsPerMessage)", value: $state.settings.contextMaxCharsPerMessage, in: 100...2000, step: 100)
+                                .frame(width: 100)
+                        }
+
+                        Text("Current: Up to \(state.settings.contextMaxMessages) messages, \(state.settings.contextMaxCharsPerMessage) chars each")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Context Prompt")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+
+                            Spacer()
+
+                            Button {
+                                state.settings.contextPrompt = AppSettings.defaultContextPrompt
+                            } label: {
+                                Label("Reset to Default", systemImage: "arrow.counterclockwise")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.borderless)
+                            .disabled(state.settings.contextPrompt == AppSettings.defaultContextPrompt)
+                        }
+
+                        TextEditor(text: $state.settings.contextPrompt)
+                            .font(.system(size: 11, design: .monospaced))
+                            .frame(height: 150)
+                            .scrollContentBackground(.hidden)
+                            .background(Color(nsColor: .textBackgroundColor).opacity(0.5))
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                            )
+
+                        Text("This prompt is sent to the AI to generate session summaries, titles, and tags.")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    DisclosureGroup("View Default Prompt") {
+                        Text(AppSettings.defaultContextPrompt)
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                    }
+                    .font(.caption)
                 }
             }
             .formStyle(.grouped)
@@ -258,7 +328,7 @@ struct SettingsView: View {
                 Label("About", systemImage: "info.circle")
             }
         }
-        .frame(width: 500, height: 450)
+        .frame(width: 500, height: 550)
         .onChange(of: state.settings) { _, _ in
             appState.saveUserData()
         }

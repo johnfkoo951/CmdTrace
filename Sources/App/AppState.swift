@@ -125,7 +125,49 @@ struct AppSettings: Codable, Equatable {
     // Tags
     var tagSortMode: TagSortMode = .important
     var visibleTagsInList: [String] = [] // which tags to show in list view
-    
+
+    // Context Summary Settings
+    var contextMaxMessages: Int = 50
+    var contextMaxCharsPerMessage: Int = 500
+    var contextPrompt: String = AppSettings.defaultContextPrompt
+
+    static let defaultContextPrompt = """
+이 코딩 세션 대화를 분석하여 다음을 생성해주세요:
+
+## 생성 항목
+
+1. **타이틀** (title)
+   - 핵심 작업/주제를 담은 간결한 제목
+   - 한국어, 10-25자
+   - 예: "SwiftUI 대시보드 차트 구현", "API 인증 버그 수정"
+
+2. **태그** (tags)
+   - 세션의 주요 키워드를 태그로 추출
+   - 3-5개의 태그
+   - 기술 스택, 작업 유형, 주요 기능 등 포함
+   - 예: ["SwiftUI", "Charts", "Dashboard", "버그수정"]
+
+3. **컨텍스트 요약** (summary)
+   - 다음에 이어서 작업할 때 참고할 핵심 맥락
+   - 한국어, 3-5문장
+   - 반드시 포함할 내용:
+     * 무슨 작업을 했는지 (What)
+     * 어디까지 진행됐는지 (Progress)
+     * 주요 결정사항이나 변경점 (Key Changes)
+     * 다음에 해야 할 작업 힌트 (Next)
+
+4. **핵심 포인트** (keyPoints)
+   - 주요 결정사항, 변경된 파일, 해결한 문제 등
+   - 3-5개 항목
+
+5. **다음 단계** (nextSteps)
+   - 이 세션을 이어서 작업할 때 해야 할 것들
+   - 2-3개 항목
+
+## 응답 형식 (JSON만 출력, 다른 텍스트 없이)
+{"title": "...", "tags": ["...", "..."], "summary": "...", "keyPoints": ["...", "..."], "nextSteps": ["...", "..."]}
+"""
+
     func iconFor(_ cli: CLITool) -> String {
         cliIcons[cli.rawValue] ?? cli.defaultIcon
     }
