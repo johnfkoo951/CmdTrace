@@ -1204,11 +1204,19 @@ struct InspectorPanel: View {
             if let responseData = responseText.data(using: .utf8),
                let parsedResponse = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any] {
                 await processStructuredResponse(parsedResponse, provider: provider)
+            }
+            // Try partial JSON parsing for truncated responses
+            else if let partialResponse = parsePartialJSON(responseText) {
+                await processStructuredResponse(partialResponse, provider: provider)
             } else {
-                // Fallback: use raw text as summary
+                // Fallback: use raw text as summary (cleaned)
+                let cleanedText = responseText
+                    .replacingOccurrences(of: "```json", with: "")
+                    .replacingOccurrences(of: "```", with: "")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
                 let summary = SessionSummary(
                     sessionId: session.id,
-                    summary: responseText,
+                    summary: cleanedText,
                     keyPoints: [],
                     suggestedNextSteps: [],
                     tags: [],
@@ -1287,8 +1295,20 @@ struct InspectorPanel: View {
             throw NSError(domain: "ParseError", code: 1, userInfo: [NSLocalizedDescriptionKey: "JSON 파싱 실패"])
         }
 
+        // Check for API error responses first
+        if let error = json["error"] as? [String: Any] {
+            let message = error["message"] as? String ?? "Unknown error"
+            let code = error["code"] as? Int ?? error["status"] as? Int ?? 0
+            throw NSError(domain: "APIError", code: code, userInfo: [NSLocalizedDescriptionKey: "API 오류: \(message)"])
+        }
+
         switch provider {
         case .anthropic:
+            // Anthropic error format
+            if let errorType = json["type"] as? String, errorType == "error" {
+                let message = (json["error"] as? [String: Any])?["message"] as? String ?? "Unknown error"
+                throw NSError(domain: "APIError", code: 400, userInfo: [NSLocalizedDescriptionKey: "Anthropic 오류: \(message)"])
+            }
             if let content = json["content"] as? [[String: Any]],
                let text = content.first?["text"] as? String {
                 return text
@@ -1300,13 +1320,28 @@ struct InspectorPanel: View {
                 return content
             }
         case .gemini:
+            // Gemini error format
+            if let errorInfo = json["error"] as? [String: Any] {
+                let message = errorInfo["message"] as? String ?? "Unknown error"
+                let status = errorInfo["status"] as? String ?? "ERROR"
+                throw NSError(domain: "APIError", code: 400, userInfo: [NSLocalizedDescriptionKey: "Gemini 오류 (\(status)): \(message)"])
+            }
             if let candidates = json["candidates"] as? [[String: Any]],
                let content = candidates.first?["content"] as? [String: Any],
                let parts = content["parts"] as? [[String: Any]],
                let text = parts.first?["text"] as? String {
                 return text
             }
+            // Check for blocked content
+            if let promptFeedback = json["promptFeedback"] as? [String: Any],
+               let blockReason = promptFeedback["blockReason"] as? String {
+                throw NSError(domain: "APIError", code: 403, userInfo: [NSLocalizedDescriptionKey: "콘텐츠 차단됨: \(blockReason)"])
+            }
         }
+
+        // Debug: print the actual response structure
+        let responseStr = String(data: data, encoding: .utf8) ?? "Unable to decode"
+        print("API Response structure: \(responseStr.prefix(500))")
 
         throw NSError(domain: "ParseError", code: 2, userInfo: [NSLocalizedDescriptionKey: "응답에서 텍스트를 찾을 수 없음"])
     }
@@ -1315,15 +1350,18 @@ struct InspectorPanel: View {
     private func extractJSONFromMarkdown(_ text: String) -> String {
         var result = text.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        // Pattern 1: ```json ... ```
+        // Pattern 1: ```json ... ``` (with closing)
         if let jsonMatch = result.range(of: "```json\\s*\\n?", options: .regularExpression),
            let endMatch = result.range(of: "\\n?```", options: .regularExpression, range: jsonMatch.upperBound..<result.endIndex) {
             result = String(result[jsonMatch.upperBound..<endMatch.lowerBound])
         }
-        // Pattern 2: ``` ... ``` (without language specifier)
+        // Pattern 2: ```json without closing (truncated response)
+        else if let jsonMatch = result.range(of: "```json\\s*\\n?", options: .regularExpression) {
+            result = String(result[jsonMatch.upperBound...])
+        }
+        // Pattern 3: ``` ... ``` (without language specifier)
         else if result.hasPrefix("```") && result.hasSuffix("```") {
             result = String(result.dropFirst(3).dropLast(3))
-            // Remove language specifier if on first line
             if let newlineIndex = result.firstIndex(of: "\n") {
                 let firstLine = String(result[..<newlineIndex]).trimmingCharacters(in: .whitespaces)
                 if firstLine.allSatisfy({ $0.isLetter }) {
@@ -1331,8 +1369,75 @@ struct InspectorPanel: View {
                 }
             }
         }
+        // Pattern 4: ``` without closing (truncated)
+        else if result.hasPrefix("```") {
+            result = String(result.dropFirst(3))
+            if let newlineIndex = result.firstIndex(of: "\n") {
+                result = String(result[result.index(after: newlineIndex)...])
+            }
+        }
 
         return result.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Parse truncated or malformed JSON by extracting fields manually
+    private func parsePartialJSON(_ text: String) -> [String: Any]? {
+        var result: [String: Any] = [:]
+
+        // Extract title
+        if let titleMatch = text.range(of: "\"title\"\\s*:\\s*\"([^\"]+)\"", options: .regularExpression) {
+            let match = String(text[titleMatch])
+            if let valueStart = match.range(of: ":"),
+               let firstQuote = match[valueStart.upperBound...].firstIndex(of: "\"") {
+                let afterQuote = match.index(after: firstQuote)
+                if let lastQuote = match[afterQuote...].firstIndex(of: "\"") {
+                    result["title"] = String(match[afterQuote..<lastQuote])
+                }
+            }
+        }
+
+        // Extract tags array
+        if let tagsStart = text.range(of: "\"tags\"\\s*:\\s*\\[", options: .regularExpression) {
+            let afterBracket = text[tagsStart.upperBound...]
+            if let closeBracket = afterBracket.firstIndex(of: "]") {
+                let tagsContent = String(afterBracket[..<closeBracket])
+                let tagPattern = "\"([^\"]+)\""
+                var tags: [String] = []
+                var searchRange = tagsContent.startIndex..<tagsContent.endIndex
+                while let match = tagsContent.range(of: tagPattern, options: .regularExpression, range: searchRange) {
+                    let tagWithQuotes = String(tagsContent[match])
+                    let tag = tagWithQuotes.trimmingCharacters(in: CharacterSet(charactersIn: "\""))
+                    tags.append(tag)
+                    searchRange = match.upperBound..<tagsContent.endIndex
+                }
+                result["tags"] = tags
+            }
+        }
+
+        // Extract summary (may be truncated)
+        if let summaryMatch = text.range(of: "\"summary\"\\s*:\\s*\"", options: .regularExpression) {
+            let afterQuote = text[summaryMatch.upperBound...]
+            // Find the end - either closing quote or end of string
+            var summaryText = ""
+            var escaped = false
+            for char in afterQuote {
+                if escaped {
+                    summaryText.append(char)
+                    escaped = false
+                } else if char == "\\" {
+                    escaped = true
+                } else if char == "\"" {
+                    break
+                } else {
+                    summaryText.append(char)
+                }
+            }
+            if !summaryText.isEmpty {
+                result["summary"] = summaryText
+            }
+        }
+
+        return result.isEmpty ? nil : result
     }
 
     @MainActor
