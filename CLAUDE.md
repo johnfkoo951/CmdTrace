@@ -178,4 +178,58 @@ When executing CLI tools (ccusage, claude-monitor) from the GUI:
 
 ## Version
 
-Current: v2.1.0-alpha
+Current: v2.0.0-alpha
+
+### Version Management
+
+버전 변경 시 아래 파일들을 **모두** 업데이트해야 함:
+
+| 파일 | 위치 | 형식 |
+|------|------|------|
+| `build-app.sh` | `VERSION="..."` | `2.0.0-alpha` |
+| `CLAUDE.md` | `Current: v...` | `v2.0.0-alpha` |
+| `website/index.html` | `<span class="version">` | `v2.0.0-alpha` |
+
+### Semantic Versioning (SemVer)
+
+```
+vMAJOR.MINOR.PATCH-prerelease
+```
+
+| 자리 | 올릴 때 |
+|------|---------|
+| **MAJOR** | 호환 안 되는 변경 (데이터 포맷, 설정 구조 변경) |
+| **MINOR** | 새 기능 추가 (기존 기능 유지) |
+| **PATCH** | 버그 수정, 사소한 개선 |
+
+### Pre-release 태그
+
+| 태그 | 의미 |
+|------|------|
+| `alpha` | 개발 중, 기능 불완전 |
+| `beta` | 기능 완성, 테스트 중 |
+| `rc` | Release Candidate, 릴리즈 직전 |
+| (없음) | 정식 릴리즈 |
+
+### Release 절차
+
+```bash
+# 1. 버전 파일들 업데이트 (위 테이블 참고)
+
+# 2. 앱 빌드
+./build-app.sh
+
+# 3. DMG 생성
+./build-dmg.sh
+
+# 4. 커밋 & 푸시
+git add -A && git commit -m "chore: bump version to vX.X.X"
+git push origin main
+
+# 5. 태그 생성 & 푸시
+git tag vX.X.X-buildN
+git push origin vX.X.X-buildN
+
+# 6. GitHub 릴리즈 생성
+gh release create vX.X.X-buildN ./build/*.dmg --title "CmdTrace vX.X.X" --prerelease
+```
