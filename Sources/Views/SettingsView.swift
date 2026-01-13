@@ -229,19 +229,14 @@ struct SettingsView: View {
                                 .font(.caption)
                         }
                         if state.settings.useCustomOpenaiModel {
-                            TextField("Model name (e.g., gpt-5)", text: $state.settings.customOpenaiModel)
+                            TextField("Model name (e.g., gpt-5.2-2025-12-11)", text: $state.settings.customOpenaiModel)
                                 .textFieldStyle(.roundedBorder)
                                 .font(.caption)
                         } else {
                             Picker("", selection: $state.settings.openaiModel) {
-                                Text("GPT-5.2 (Latest)").tag("gpt-5.2")
-                                Text("GPT-5.1").tag("gpt-5.1")
-                                Text("GPT-5").tag("gpt-5")
-                                Text("GPT-4.1").tag("gpt-4.1")
-                                Text("GPT-4.1 Mini").tag("gpt-4.1-mini")
-                                Text("GPT-4.1 Nano").tag("gpt-4.1-nano")
-                                Text("GPT-4o").tag("gpt-4o")
-                                Text("GPT-4o Mini").tag("gpt-4o-mini")
+                                Text("GPT-5.2 (Latest)").tag("gpt-5.2-2025-12-11")
+                                Text("GPT-5 Mini").tag("gpt-5-mini-2025-08-07")
+                                Text("GPT-5 Nano").tag("gpt-5-nano-2025-08-07")
                             }
                             .labelsHidden()
                         }
@@ -259,17 +254,14 @@ struct SettingsView: View {
                                 .font(.caption)
                         }
                         if state.settings.useCustomAnthropicModel {
-                            TextField("Model name (e.g., claude-4-sonnet)", text: $state.settings.customAnthropicModel)
+                            TextField("Model name (e.g., claude-sonnet-4-5-20250929)", text: $state.settings.customAnthropicModel)
                                 .textFieldStyle(.roundedBorder)
                                 .font(.caption)
                         } else {
                             Picker("", selection: $state.settings.anthropicModel) {
-                                Text("Claude 4 Sonnet (Latest)").tag("claude-sonnet-4-20250514")
-                                Text("Claude 4 Opus").tag("claude-opus-4-20250514")
+                                Text("Claude 4.5 Sonnet (Latest)").tag("claude-sonnet-4-5-20250929")
                                 Text("Claude 4.5 Opus").tag("claude-opus-4-5-20251101")
-                                Text("Claude 3.7 Sonnet").tag("claude-3-7-sonnet-20250219")
-                                Text("Claude 3.5 Haiku").tag("claude-3-5-haiku-latest")
-                                Text("Claude 3.5 Sonnet").tag("claude-3-5-sonnet-latest")
+                                Text("Claude 4.5 Haiku").tag("claude-haiku-4-5-20251001")
                             }
                             .labelsHidden()
                         }
@@ -287,15 +279,13 @@ struct SettingsView: View {
                                 .font(.caption)
                         }
                         if state.settings.useCustomGeminiModel {
-                            TextField("Model name (e.g., gemini-3-pro)", text: $state.settings.customGeminiModel)
+                            TextField("Model name (e.g., gemini-3-flash-preview)", text: $state.settings.customGeminiModel)
                                 .textFieldStyle(.roundedBorder)
                                 .font(.caption)
                         } else {
                             Picker("", selection: $state.settings.geminiModel) {
-                                Text("Gemini 2.5 Flash (Recommended)").tag("gemini-2.5-flash")
-                                Text("Gemini 2.5 Pro").tag("gemini-2.5-pro")
-                                Text("Gemini 2.0 Flash").tag("gemini-2.0-flash")
-                                Text("Gemini 2.5 Flash Lite").tag("gemini-2.5-flash-lite")
+                                Text("Gemini 3 Flash Preview (Latest)").tag("gemini-3-flash-preview")
+                                Text("Gemini 3 Pro Preview").tag("gemini-3-pro-preview")
                             }
                             .labelsHidden()
                         }
@@ -313,16 +303,13 @@ struct SettingsView: View {
                                 .font(.caption)
                         }
                         if state.settings.useCustomGrokModel {
-                            TextField("Model name (e.g., grok-5)", text: $state.settings.customGrokModel)
+                            TextField("Model name (e.g., grok-4-1-fast-reasoning)", text: $state.settings.customGrokModel)
                                 .textFieldStyle(.roundedBorder)
                                 .font(.caption)
                         } else {
                             Picker("", selection: $state.settings.grokModel) {
-                                Text("Grok 4.1 Fast (Latest)").tag("grok-4-1-fast-non-reasoning")
-                                Text("Grok 4.1 Reasoning").tag("grok-4-1-fast-reasoning")
-                                Text("Grok 4").tag("grok-4")
-                                Text("Grok 3").tag("grok-3")
-                                Text("Grok Code").tag("grok-code-fast-1")
+                                Text("Grok 4.1 Reasoning (Latest)").tag("grok-4-1-fast-reasoning")
+                                Text("Grok 4.1 Non-Reasoning").tag("grok-4-1-fast-non-reasoning")
                             }
                             .labelsHidden()
                         }
