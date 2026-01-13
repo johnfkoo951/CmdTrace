@@ -564,7 +564,7 @@ struct ResumeButton: View {
     let label: String
     let icon: String
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: action) {
             VStack(spacing: 4) {
@@ -577,6 +577,34 @@ struct ResumeButton: View {
             .frame(height: 44)
         }
         .buttonStyle(.bordered)
+    }
+}
+
+struct QuickActionButton: View {
+    let label: String
+    let icon: String
+    var color: Color = .blue
+    var isActive: Bool = false
+    var disabled: Bool = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(isActive ? color : .primary)
+                Text(label)
+                    .font(.system(size: 10, weight: .medium))
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 50)
+            .background(isActive ? color.opacity(0.12) : Color.secondary.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+        .opacity(disabled ? 0.5 : 1)
     }
 }
 
@@ -900,44 +928,42 @@ struct InspectorPanel: View {
                 Divider()
                 
                 SectionHeader("Quick Actions")
-                VStack(alignment: .leading, spacing: 6) {
-                    Button {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                    QuickActionButton(
+                        label: appState.isFavorite(session.id) ? "Unfavorite" : "Favorite",
+                        icon: appState.isFavorite(session.id) ? "star.fill" : "star",
+                        color: .yellow,
+                        isActive: appState.isFavorite(session.id)
+                    ) {
                         appState.toggleFavorite(for: session.id)
-                    } label: {
-                        Label(appState.isFavorite(session.id) ? "Remove from Favorites" : "Add to Favorites",
-                              systemImage: appState.isFavorite(session.id) ? "star.fill" : "star")
-                            .font(labelFont)
                     }
-                    .buttonStyle(.plain)
-                    
-                    Button {
+
+                    QuickActionButton(
+                        label: appState.isPinned(session.id) ? "Unpin" : "Pin",
+                        icon: appState.isPinned(session.id) ? "pin.slash.fill" : "pin",
+                        color: .orange,
+                        isActive: appState.isPinned(session.id)
+                    ) {
                         appState.togglePinned(for: session.id)
-                    } label: {
-                        Label(appState.isPinned(session.id) ? "Unpin" : "Pin to Top",
-                              systemImage: appState.isPinned(session.id) ? "pin.slash" : "pin")
-                            .font(labelFont)
                     }
-                    .buttonStyle(.plain)
-                    
-                    Divider().padding(.vertical, 2)
-                    
-                    Button {
+
+                    QuickActionButton(
+                        label: "Copy ID",
+                        icon: "doc.on.doc",
+                        color: .blue
+                    ) {
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(session.id, forType: .string)
-                    } label: {
-                        Label("Copy Session ID", systemImage: "doc.on.doc")
-                            .font(labelFont)
                     }
-                    .buttonStyle(.plain)
-                    
-                    Button {
+
+                    QuickActionButton(
+                        label: "Obsidian",
+                        icon: "arrow.up.doc",
+                        color: .purple,
+                        disabled: appState.settings.obsidianVaultPath.isEmpty
+                    ) {
                         sendToObsidian()
-                    } label: {
-                        Label("Send to Obsidian", systemImage: "arrow.up.doc")
-                            .font(labelFont)
                     }
-                    .buttonStyle(.plain)
-                    .disabled(appState.settings.obsidianVaultPath.isEmpty)
                 }
                 
                 if appState.selectedCLI == .claude {
@@ -983,7 +1009,13 @@ struct InspectorPanel: View {
     }
     
     private func addTag() {
-        let tag = newTag.trimmingCharacters(in: .whitespaces)
+        // Obsidian tag format: no spaces, use - or _ instead
+        var tag = newTag.trimmingCharacters(in: .whitespaces)
+        // Replace spaces with hyphens (Obsidian convention)
+        tag = tag.replacingOccurrences(of: " ", with: "-")
+        // Remove any invalid characters (keep alphanumeric, -, _, /, Korean)
+        tag = tag.filter { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" || $0 == "/" }
+
         if !tag.isEmpty {
             appState.addTag(tag, to: session.id)
             newTag = ""
@@ -1211,9 +1243,37 @@ struct InspectorPanel: View {
         if let summary = appState.getSummary(for: session.id) {
             md += "## Summary\n\n\(summary.summary)\n\n"
         }
-        
+
+        // Resume Commands section
+        md += "## Resume Session\n\n"
+        md += "터미널에서 이 세션을 이어서 진행하려면:\n\n"
+
+        switch appState.selectedCLI {
+        case .claude:
+            md += "```bash\n"
+            md += "# 기본 Resume\n"
+            md += "cd \"\(projectPath)\"\n"
+            md += "claude -r \(session.id)\n"
+            md += "```\n\n"
+            md += "```bash\n"
+            md += "# Bypass 모드 (권한 확인 건너뛰기)\n"
+            md += "cd \"\(projectPath)\"\n"
+            md += "claude -r \(session.id) --dangerously-skip-permissions\n"
+            md += "```\n\n"
+        case .opencode:
+            md += "```bash\n"
+            md += "cd \"\(projectPath)\"\n"
+            md += "opencode --resume \(session.id)\n"
+            md += "```\n\n"
+        case .antigravity:
+            md += "```bash\n"
+            md += "cd \"\(projectPath)\"\n"
+            md += "antigravity --resume \(session.id)\n"
+            md += "```\n\n"
+        }
+
         md += "---\n\n"
-        md += "*Exported from Agent Archives*\n"
+        md += "*Exported from CmdTrace*\n"
         
         let safeName = displayName.replacingOccurrences(of: "/", with: "-")
             .replacingOccurrences(of: ":", with: "-")
