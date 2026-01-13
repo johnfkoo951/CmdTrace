@@ -488,11 +488,14 @@ struct SessionHeader: View {
                     appState.setSessionName(title, for: session.id)
                 }
 
-                // 2. Add generated tags to session
+                // 2. Add generated tags to session (sanitize: remove # prefix and spaces)
                 if let tags = response["tags"] as? [String] {
                     for tag in tags {
-                        let cleanTag = tag.hasPrefix("#") ? String(tag.dropFirst()) : tag
-                        appState.addTag(cleanTag, to: session.id)
+                        var cleanTag = tag.hasPrefix("#") ? String(tag.dropFirst()) : tag
+                        cleanTag = cleanTag.replacingOccurrences(of: " ", with: "") // No spaces allowed
+                        if !cleanTag.isEmpty {
+                            appState.addTag(cleanTag, to: session.id)
+                        }
                     }
                 }
 
@@ -948,11 +951,18 @@ struct InspectorPanel: View {
                     }
                     
                     HStack(spacing: 6) {
-                        TextField("Add tag", text: $newTag)
+                        TextField("Add tag (no spaces)", text: $newTag)
                             .textFieldStyle(.roundedBorder)
                             .font(smallFont)
                             .onSubmit { addTag() }
-                        
+                            .onChange(of: newTag) { oldValue, newValue in
+                                // Remove spaces in real-time as user types
+                                let sanitized = newValue.replacingOccurrences(of: " ", with: "")
+                                if sanitized != newValue {
+                                    newTag = sanitized
+                                }
+                            }
+
                         Button { addTag() } label: {
                             Image(systemName: "plus.circle.fill")
                                 .font(.system(size: 14))
@@ -1247,7 +1257,7 @@ struct InspectorPanel: View {
             jsonData = try JSONSerialization.data(withJSONObject: body)
             request = URLRequest(url: url)
             request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
-            request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+            request.setValue("2025-01-01", forHTTPHeaderField: "anthropic-version")  // Updated for Claude 4.5+ models
 
         case .openai:
             url = URL(string: "https://api.openai.com/v1/chat/completions")!
@@ -1447,11 +1457,14 @@ struct InspectorPanel: View {
             appState.setSessionName(title, for: session.id)
         }
 
-        // 2. Add generated tags to session metadata
+        // 2. Add generated tags to session metadata (sanitize: remove # prefix and spaces)
         if let tags = response["tags"] as? [String] {
             for tag in tags {
-                let cleanTag = tag.hasPrefix("#") ? String(tag.dropFirst()) : tag
-                appState.addTag(cleanTag, to: session.id)
+                var cleanTag = tag.hasPrefix("#") ? String(tag.dropFirst()) : tag
+                cleanTag = cleanTag.replacingOccurrences(of: " ", with: "") // No spaces allowed
+                if !cleanTag.isEmpty {
+                    appState.addTag(cleanTag, to: session.id)
+                }
             }
         }
 

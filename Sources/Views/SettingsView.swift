@@ -331,7 +331,7 @@ struct SettingsView: View {
                                 .foregroundStyle(.secondary)
                         }
                         Slider(value: $state.settings.aiTemperature, in: 0...1, step: 0.1)
-                        Text("Lower = more focused, Higher = more creative")
+                        Text("Lower = more focused, Higher = more creative (Default: 0.7)")
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
                     }
@@ -349,10 +349,20 @@ struct SettingsView: View {
                             get: { Double(state.settings.aiMaxTokens) },
                             set: { state.settings.aiMaxTokens = Int($0) }
                         ), in: 256...4096, step: 256)
-                        Text("Maximum tokens for AI response")
+                        Text("Maximum tokens for AI response (Default: 1024)")
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
                     }
+
+                    Button {
+                        state.settings.aiTemperature = 0.7
+                        state.settings.aiMaxTokens = 1024
+                    } label: {
+                        Label("Reset to Defaults", systemImage: "arrow.counterclockwise")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(state.settings.aiTemperature == 0.7 && state.settings.aiMaxTokens == 1024)
                 }
 
                 Section("Reminders") {

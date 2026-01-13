@@ -178,7 +178,7 @@ When executing CLI tools (ccusage, claude-monitor) from the GUI:
 
 ## Version
 
-Current: v2.0.0-alpha
+Current: v2.1.0
 
 ### Version Management
 
@@ -186,9 +186,9 @@ Current: v2.0.0-alpha
 
 | 파일 | 위치 | 형식 |
 |------|------|------|
-| `build-app.sh` | `VERSION="..."` | `2.0.0-alpha` |
-| `CLAUDE.md` | `Current: v...` | `v2.0.0-alpha` |
-| `website/index.html` | `<span class="version">` | `v2.0.0-alpha` |
+| `build-app.sh` | `VERSION="..."` | `2.1.0` |
+| `CLAUDE.md` | `Current: v...` | `v2.1.0` |
+| `website/index.html` | `<span class="version">` | `v2.1.0` |
 
 ### Semantic Versioning (SemVer)
 

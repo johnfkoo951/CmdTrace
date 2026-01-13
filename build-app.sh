@@ -4,7 +4,7 @@ set -e
 
 APP_NAME="CmdTrace"
 BUNDLE_ID="com.cmdspace.cmdtrace"
-VERSION="2.0.0-alpha"
+VERSION="2.1.0"
 
 # Auto-increment build number
 SCRIPT_DIR="$(dirname "$0")"
