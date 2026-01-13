@@ -24,7 +24,7 @@ struct ContentView: View {
             }
             .inspector(isPresented: $state.showInspector) {
                 InspectorContent()
-                    .inspectorColumnWidth(min: 280, ideal: 320, max: 400)
+                    .inspectorColumnWidth(min: 300, ideal: 340, max: 420)
             }
         }
         .toolbar {
@@ -73,11 +73,11 @@ struct InspectorContent: View {
 // MARK: - CLI Tool Picker (Spark Mail Style)
 struct CLIToolPicker: View {
     @Environment(AppState.self) private var appState
-    
+
     var enabledCLIs: [CLITool] {
         appState.settings.enabledCLIs
     }
-    
+
     var body: some View {
         Menu {
             ForEach(enabledCLIs, id: \.self) { cli in
@@ -89,6 +89,15 @@ struct CLIToolPicker: View {
                     HStack {
                         Image(systemName: appState.settings.iconFor(cli))
                         Text(cli.rawValue)
+                        if cli == .antigravity {
+                            Text("Beta")
+                                .font(.caption2)
+                                .foregroundStyle(.orange)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 1)
+                                .background(.orange.opacity(0.15))
+                                .clipShape(RoundedRectangle(cornerRadius: 3))
+                        }
                         if appState.selectedCLI == cli {
                             Spacer()
                             Image(systemName: "checkmark")
@@ -102,6 +111,15 @@ struct CLIToolPicker: View {
                     .font(.system(size: 13))
                 Text(appState.selectedCLI.rawValue)
                     .font(.system(size: 13, weight: .medium))
+                if appState.selectedCLI == .antigravity {
+                    Text("Beta")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(.orange)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 2)
+                        .background(.orange.opacity(0.15))
+                        .clipShape(RoundedRectangle(cornerRadius: 3))
+                }
                 Image(systemName: "chevron.down")
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(.secondary)

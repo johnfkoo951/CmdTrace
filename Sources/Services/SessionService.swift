@@ -46,11 +46,15 @@ actor SessionService {
                   isDir.boolValue else { continue }
             
             // Find .jsonl files (Claude Code session format)
+            // Exclude agent-*.jsonl files (sub-agent/warmup sessions)
             let sessionFiles = try fileManager.contentsOfDirectory(
                 at: projectDir,
                 includingPropertiesForKeys: [.contentModificationDateKey],
                 options: [.skipsHiddenFiles]
-            ).filter { $0.pathExtension == "jsonl" }
+            ).filter {
+                $0.pathExtension == "jsonl" &&
+                !$0.lastPathComponent.hasPrefix("agent-")
+            }
             
             for sessionFile in sessionFiles {
                 if let session = try? parseClaudeSession(at: sessionFile, projectDir: projectDir) {
@@ -117,12 +121,18 @@ actor SessionService {
         }
         
         // Extract project name from directory
+        // Dynamically detect and remove user home path prefix (e.g., "-Users-username-")
+        let username = NSUserName()
         let projectName = projectDir.lastPathComponent
-            .replacingOccurrences(of: "-Users-yohankoo-", with: "")
+            .replacingOccurrences(of: "-Users-\(username)-", with: "")
             .replacingOccurrences(of: "-", with: "/")
-        
+
+        // Create unique ID by combining project folder and session ID
+        // This prevents duplicate IDs when same session exists in multiple projects
+        let uniqueId = "\(projectDir.lastPathComponent)/\(sessionId)"
+
         return Session(
-            id: sessionId,
+            id: uniqueId,
             title: preview.isEmpty ? sessionId : preview,
             project: cwd.isEmpty ? projectName : cwd,
             preview: preview.isEmpty ? "No preview available" : preview,

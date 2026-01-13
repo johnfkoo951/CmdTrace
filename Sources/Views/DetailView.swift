@@ -443,9 +443,15 @@ struct SessionHeader: View {
         {"title": "...", "tags": ["...", "..."], "summary": "..."}
         """
 
+        // Use settings for model and parameters
+        let model = appState.settings.effectiveAnthropicModel
+        let maxTokens = appState.settings.aiMaxTokens
+        let temperature = appState.settings.aiTemperature
+
         let requestBody: [String: Any] = [
-            "model": "claude-3-haiku-20240307",
-            "max_tokens": 1024,
+            "model": model,
+            "max_tokens": maxTokens,
+            "temperature": temperature,
             "messages": [["role": "user", "content": prompt]]
         ]
 
@@ -460,7 +466,17 @@ struct SessionHeader: View {
         request.httpBody = jsonData
 
         do {
-            let (data, _) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            // Check for HTTP errors
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
+                print("API Error: HTTP \(httpResponse.statusCode)")
+                if let errorJson = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    print("Error details: \(errorJson)")
+                }
+                return
+            }
+
             if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                let content = json["content"] as? [[String: Any]],
                let text = content.first?["text"] as? String,
@@ -499,7 +515,7 @@ struct SessionHeader: View {
                 }
             }
         } catch {
-            // Silently fail - user can try again
+            print("API Error: \(error.localizedDescription)")
         }
     }
 }
@@ -526,17 +542,20 @@ struct InfoRow: View {
     let value: String
     var font: Font = .system(size: 11)
     var truncate: Bool = false
-    
+
     var body: some View {
-        HStack {
+        HStack(alignment: .top) {
             Text(label)
                 .font(font)
                 .foregroundStyle(.secondary)
-            Spacer()
+                .frame(minWidth: 80, alignment: .leading)
+            Spacer(minLength: 8)
             Text(value)
                 .font(font)
-                .lineLimit(truncate ? 1 : nil)
+                .lineLimit(truncate ? 1 : 2)
                 .truncationMode(.middle)
+                .multilineTextAlignment(.trailing)
+                .frame(maxWidth: .infinity, alignment: .trailing)
         }
     }
 }
@@ -1061,9 +1080,15 @@ struct InspectorPanel: View {
         \(conversationText)
         """
 
+        // Use settings for model and parameters
+        let model = appState.settings.effectiveAnthropicModel
+        let maxTokens = appState.settings.aiMaxTokens
+        let temperature = appState.settings.aiTemperature
+
         let requestBody: [String: Any] = [
-            "model": "claude-3-haiku-20240307",
-            "max_tokens": 1024,
+            "model": model,
+            "max_tokens": maxTokens,
+            "temperature": temperature,
             "messages": [["role": "user", "content": prompt]]
         ]
 
@@ -1078,7 +1103,17 @@ struct InspectorPanel: View {
         request.httpBody = jsonData
 
         do {
-            let (data, _) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            // Check for HTTP errors
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
+                print("API Error: HTTP \(httpResponse.statusCode)")
+                if let errorJson = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    print("Error details: \(errorJson)")
+                }
+                return
+            }
+
             if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                let content = json["content"] as? [[String: Any]],
                let text = content.first?["text"] as? String,
@@ -1117,7 +1152,7 @@ struct InspectorPanel: View {
                 }
             }
         } catch {
-            // Silently fail - user can try again
+            print("API Error: \(error.localizedDescription)")
         }
     }
     

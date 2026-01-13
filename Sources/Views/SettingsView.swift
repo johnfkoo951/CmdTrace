@@ -208,14 +208,167 @@ struct SettingsView: View {
                             Text(provider.rawValue).tag(provider)
                         }
                     }
-                    
+
                     Picker("Suggestion Provider", selection: $state.settings.suggestionProvider) {
                         ForEach(AIProvider.allCases, id: \.self) { provider in
                             Text(provider.rawValue).tag(provider)
                         }
                     }
                 }
-                
+
+                Section("Model Settings") {
+                    // OpenAI Model
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("OpenAI Model")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                            Spacer()
+                            Toggle("Custom", isOn: $state.settings.useCustomOpenaiModel)
+                                .toggleStyle(.checkbox)
+                                .font(.caption)
+                        }
+                        if state.settings.useCustomOpenaiModel {
+                            TextField("Model name (e.g., gpt-5)", text: $state.settings.customOpenaiModel)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.caption)
+                        } else {
+                            Picker("", selection: $state.settings.openaiModel) {
+                                Text("GPT-5.2 (Latest)").tag("gpt-5.2")
+                                Text("GPT-5.1").tag("gpt-5.1")
+                                Text("GPT-5").tag("gpt-5")
+                                Text("GPT-4.1").tag("gpt-4.1")
+                                Text("GPT-4.1 Mini").tag("gpt-4.1-mini")
+                                Text("GPT-4.1 Nano").tag("gpt-4.1-nano")
+                                Text("GPT-4o").tag("gpt-4o")
+                                Text("GPT-4o Mini").tag("gpt-4o-mini")
+                            }
+                            .labelsHidden()
+                        }
+                    }
+
+                    // Anthropic Model
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Anthropic Model")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                            Spacer()
+                            Toggle("Custom", isOn: $state.settings.useCustomAnthropicModel)
+                                .toggleStyle(.checkbox)
+                                .font(.caption)
+                        }
+                        if state.settings.useCustomAnthropicModel {
+                            TextField("Model name (e.g., claude-4-sonnet)", text: $state.settings.customAnthropicModel)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.caption)
+                        } else {
+                            Picker("", selection: $state.settings.anthropicModel) {
+                                Text("Claude 4 Sonnet (Latest)").tag("claude-sonnet-4-20250514")
+                                Text("Claude 4 Opus").tag("claude-opus-4-20250514")
+                                Text("Claude 4.5 Opus").tag("claude-opus-4-5-20251101")
+                                Text("Claude 3.7 Sonnet").tag("claude-3-7-sonnet-20250219")
+                                Text("Claude 3.5 Haiku").tag("claude-3-5-haiku-latest")
+                                Text("Claude 3.5 Sonnet").tag("claude-3-5-sonnet-latest")
+                            }
+                            .labelsHidden()
+                        }
+                    }
+
+                    // Gemini Model
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Gemini Model")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                            Spacer()
+                            Toggle("Custom", isOn: $state.settings.useCustomGeminiModel)
+                                .toggleStyle(.checkbox)
+                                .font(.caption)
+                        }
+                        if state.settings.useCustomGeminiModel {
+                            TextField("Model name (e.g., gemini-3-pro)", text: $state.settings.customGeminiModel)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.caption)
+                        } else {
+                            Picker("", selection: $state.settings.geminiModel) {
+                                Text("Gemini 3 Pro (Latest)").tag("gemini-3-pro")
+                                Text("Gemini 3 Flash").tag("gemini-3-flash-preview")
+                                Text("Gemini 2.5 Pro").tag("gemini-2.5-pro")
+                                Text("Gemini 2.5 Flash").tag("gemini-2.5-flash")
+                                Text("Gemini 2.0 Flash").tag("gemini-2.0-flash")
+                            }
+                            .labelsHidden()
+                        }
+                    }
+
+                    // Grok Model
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Grok Model")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                            Spacer()
+                            Toggle("Custom", isOn: $state.settings.useCustomGrokModel)
+                                .toggleStyle(.checkbox)
+                                .font(.caption)
+                        }
+                        if state.settings.useCustomGrokModel {
+                            TextField("Model name (e.g., grok-5)", text: $state.settings.customGrokModel)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.caption)
+                        } else {
+                            Picker("", selection: $state.settings.grokModel) {
+                                Text("Grok 4.1 Fast (Latest)").tag("grok-4-1-fast-non-reasoning")
+                                Text("Grok 4.1 Reasoning").tag("grok-4-1-fast-reasoning")
+                                Text("Grok 4").tag("grok-4")
+                                Text("Grok 3").tag("grok-3")
+                                Text("Grok Code").tag("grok-code-fast-1")
+                            }
+                            .labelsHidden()
+                        }
+                    }
+
+                    Text("Check 'Custom' to enter a model name directly. Useful for new models not yet listed.")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+
+                Section("Generation Parameters") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Temperature")
+                                .font(.caption)
+                            Spacer()
+                            Text(String(format: "%.1f", state.settings.aiTemperature))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Slider(value: $state.settings.aiTemperature, in: 0...1, step: 0.1)
+                        Text("Lower = more focused, Higher = more creative")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Max Tokens")
+                                .font(.caption)
+                            Spacer()
+                            Text("\(state.settings.aiMaxTokens)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Slider(value: Binding(
+                            get: { Double(state.settings.aiMaxTokens) },
+                            set: { state.settings.aiMaxTokens = Int($0) }
+                        ), in: 256...4096, step: 256)
+                        Text("Maximum tokens for AI response")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+
                 Section("Reminders") {
                     Toggle("Enable Session Reminders", isOn: $state.settings.enableReminders)
 
@@ -306,17 +459,59 @@ struct SettingsView: View {
             // About Tab
             Form {
                 Section("About") {
-                    LabeledContent("App", value: "Agent Archives")
+                    LabeledContent("App", value: "CmdTrace")
                     LabeledContent("Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2.0.0")
                     LabeledContent("Build", value: Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1")
+                    Text("macOS native session viewer for AI CLI coding assistants")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-                
-                Section("Links") {
-                    Link(destination: URL(string: "https://github.com/johnfkoo951/agent-archives")!) {
-                        Label("GitHub Repository", systemImage: "link")
+
+                Section("Contributors") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Image(systemName: "person.circle.fill")
+                                .foregroundStyle(.blue)
+                            Text("Yohan Koo")
+                                .fontWeight(.medium)
+                            Spacer()
+                            Link(destination: URL(string: "https://github.com/johnfkoo951")!) {
+                                Image(systemName: "link")
+                            }
+                        }
+                        HStack {
+                            Image(systemName: "person.circle.fill")
+                                .foregroundStyle(.green)
+                            Text("Joon Park")
+                                .fontWeight(.medium)
+                        }
                     }
                 }
-                
+
+                Section("Links") {
+                    Link(destination: URL(string: "https://github.com/johnfkoo951/CmdTrace")!) {
+                        Label("GitHub Repository", systemImage: "chevron.left.forwardslash.chevron.right")
+                    }
+                    Link(destination: URL(string: "https://x.com/YohanKoo")!) {
+                        Label("X (Twitter)", systemImage: "at")
+                    }
+                    Link(destination: URL(string: "https://www.youtube.com/@cmdspace")!) {
+                        Label("YouTube - 커맨드스페이스", systemImage: "play.rectangle")
+                    }
+                    Link(destination: URL(string: "https://www.instagram.com/cmds_pace/")!) {
+                        Label("Instagram", systemImage: "camera")
+                    }
+                    Link(destination: URL(string: "https://www.linkedin.com/in/yohan-koo-a1baa3138/")!) {
+                        Label("LinkedIn", systemImage: "briefcase")
+                    }
+                    Link(destination: URL(string: "https://www.threads.com/@cmds_pace")!) {
+                        Label("Threads", systemImage: "at.circle")
+                    }
+                    Link(destination: URL(string: "https://class.cmdspace.kr/")!) {
+                        Label("Edu Portal", systemImage: "graduationcap")
+                    }
+                }
+
                 Section("Credits") {
                     Text("Built with SwiftUI for macOS")
                         .font(.caption)

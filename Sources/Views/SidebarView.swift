@@ -1235,45 +1235,57 @@ struct StatsBar: View {
     @Environment(\.openSettings) private var openSettings
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 16) {
             // Settings button
             Button {
                 openSettings()
             } label: {
                 Image(systemName: "gearshape.fill")
-                    .font(.system(size: 11))
+                    .font(.system(size: 14))
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
             .help("Settings")
 
             Divider()
-                .frame(height: 14)
+                .frame(height: 18)
 
-            // Sessions count badge
-            HStack(spacing: 4) {
+            // Sessions count badge with label
+            HStack(spacing: 6) {
                 Image(systemName: "doc.text")
-                    .font(.system(size: 10))
+                    .font(.system(size: 12))
+                Text("Sessions")
+                    .font(.system(size: 12))
                 Text("\(appState.filteredSessions.count)")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
             }
             .foregroundStyle(.secondary)
 
             Spacer()
 
-            // Total messages badge
+            // Total messages badge with label
             let totalMessages = appState.filteredSessions.reduce(0) { $0 + $1.messageCount }
-            HStack(spacing: 4) {
+            HStack(spacing: 6) {
                 Image(systemName: "bubble.left.and.bubble.right")
-                    .font(.system(size: 10))
-                Text("\(totalMessages)")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 12))
+                Text("Messages")
+                    .font(.system(size: 12))
+                Text(formatNumber(totalMessages))
+                    .font(.system(size: 13, weight: .semibold))
             }
             .foregroundStyle(.secondary)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
         .background(.ultraThinMaterial)
+    }
+
+    private func formatNumber(_ num: Int) -> String {
+        if num >= 1000 {
+            let thousands = Double(num) / 1000.0
+            return String(format: "%.1fK", thousands)
+        }
+        return "\(num)"
     }
 }
 

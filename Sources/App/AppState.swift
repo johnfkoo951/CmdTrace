@@ -112,6 +112,38 @@ struct AppSettings: Codable, Equatable {
     var reminderHours: Int = 24
     var enableReminders: Bool = true
     var enableSuggestions: Bool = true
+
+    // AI Model Settings (Updated for 2026)
+    var openaiModel: String = "gpt-4.1-mini"
+    var anthropicModel: String = "claude-3-5-haiku-latest"
+    var geminiModel: String = "gemini-2.5-flash"
+    var grokModel: String = "grok-4-1-fast-non-reasoning"
+    var aiTemperature: Double = 0.7
+    var aiMaxTokens: Int = 1024
+
+    // Custom model names (for user-specified models)
+    var useCustomOpenaiModel: Bool = false
+    var useCustomAnthropicModel: Bool = false
+    var useCustomGeminiModel: Bool = false
+    var useCustomGrokModel: Bool = false
+    var customOpenaiModel: String = ""
+    var customAnthropicModel: String = ""
+    var customGeminiModel: String = ""
+    var customGrokModel: String = ""
+
+    // Computed properties for actual model to use
+    var effectiveOpenaiModel: String {
+        useCustomOpenaiModel && !customOpenaiModel.isEmpty ? customOpenaiModel : openaiModel
+    }
+    var effectiveAnthropicModel: String {
+        useCustomAnthropicModel && !customAnthropicModel.isEmpty ? customAnthropicModel : anthropicModel
+    }
+    var effectiveGeminiModel: String {
+        useCustomGeminiModel && !customGeminiModel.isEmpty ? customGeminiModel : geminiModel
+    }
+    var effectiveGrokModel: String {
+        useCustomGrokModel && !customGrokModel.isEmpty ? customGrokModel : grokModel
+    }
     
     // Obsidian
     var obsidianVaultPath: String = ""
