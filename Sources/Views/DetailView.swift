@@ -10,6 +10,8 @@ struct DetailView: View {
             SessionDetailView()
         case .dashboard:
             DashboardView()
+        case .configuration:
+            ConfigurationView()
         case .interaction:
             InteractionView()
         }
@@ -179,25 +181,24 @@ struct SessionHeader: View {
                     }
                     .help("Download")
                     
-                    // Resume 버튼 - Claude Code, OpenCode, Antigravity 지원
                     if appState.selectedCLI == .claude || appState.selectedCLI == .opencode || appState.selectedCLI == .antigravity {
                         Menu {
                             Section("Terminal") {
-                                Button("Open") { executeResume(.terminal, bypass: false) }
+                                Button("Open") { executeResumeSession(session, terminal: .terminal, bypass: false, cliType: appState.selectedCLI) }
                                 if appState.selectedCLI == .claude {
-                                    Button("Bypass") { executeResume(.terminal, bypass: true) }
+                                    Button("Bypass") { executeResumeSession(session, terminal: .terminal, bypass: true, cliType: appState.selectedCLI) }
                                 }
                             }
                             Section("iTerm2") {
-                                Button("Open") { executeResume(.iterm, bypass: false) }
+                                Button("Open") { executeResumeSession(session, terminal: .iterm, bypass: false, cliType: appState.selectedCLI) }
                                 if appState.selectedCLI == .claude {
-                                    Button("Bypass") { executeResume(.iterm, bypass: true) }
+                                    Button("Bypass") { executeResumeSession(session, terminal: .iterm, bypass: true, cliType: appState.selectedCLI) }
                                 }
                             }
                             Section("Warp") {
-                                Button("Open") { executeResume(.warp, bypass: false) }
+                                Button("Open") { executeResumeSession(session, terminal: .warp, bypass: false, cliType: appState.selectedCLI) }
                                 if appState.selectedCLI == .claude {
-                                    Button("Bypass") { executeResume(.warp, bypass: true) }
+                                    Button("Bypass") { executeResumeSession(session, terminal: .warp, bypass: true, cliType: appState.selectedCLI) }
                                 }
                             }
                         } label: {
@@ -224,103 +225,6 @@ struct SessionHeader: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .background(.bar)
-    }
-    
-    private func executeResume(_ terminal: TerminalType, bypass: Bool) {
-        let projectPath = session.project
-
-        // CLI별로 다른 명령어 생성
-        let resumeCommand: String
-        switch appState.selectedCLI {
-        case .claude:
-            resumeCommand = bypass
-                ? "claude -r \(session.resumeId) --dangerously-skip-permissions"
-                : "claude -r \(session.resumeId)"
-        case .opencode:
-            resumeCommand = "opencode -s \(session.resumeId)"
-        case .antigravity:
-            resumeCommand = "antigravity --resume \(session.resumeId)"
-        }
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            switch terminal {
-            case .terminal:
-                // osascript -e 방식 사용 (bash 스크립트와 동일)
-                let script = """
-                tell application "Terminal"
-                    activate
-                    do script "cd '\(projectPath)' && \(resumeCommand)"
-                end tell
-                """
-                self.runOsascript(script)
-
-            case .iterm:
-                let script = """
-                tell application "iTerm2"
-                    activate
-                    set newWindow to (create window with default profile)
-                    tell current session of newWindow
-                        write text "cd '\(projectPath)' && \(resumeCommand)"
-                    end tell
-                end tell
-                """
-                self.runOsascript(script)
-
-            case .warp:
-                // Warp: 명령어만 복사 (cd 없이! Warp가 해당 디렉토리에서 열림)
-                DispatchQueue.main.async {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(resumeCommand, forType: .string)
-                }
-
-                // open -a Warp "path" - Warp가 해당 디렉토리에서 바로 열림
-                let openProcess = Process()
-                openProcess.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-                openProcess.arguments = ["-a", "Warp", projectPath]
-                try? openProcess.run()
-                openProcess.waitUntilExit()
-
-                // 잠시 대기 후 붙여넣기 실행
-                Thread.sleep(forTimeInterval: 0.5)
-
-                let pasteScript = """
-                tell application "System Events"
-                    tell process "Warp"
-                        set frontmost to true
-                        delay 1.0
-                        keystroke "v" using command down
-                        delay 0.2
-                        key code 36
-                    end tell
-                end tell
-                """
-                self.runOsascript(pasteScript)
-            }
-        }
-    }
-
-    /// osascript 명령으로 AppleScript 실행
-    private func runOsascript(_ script: String) {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        process.arguments = ["-e", script]
-
-        let pipe = Pipe()
-        process.standardError = pipe
-
-        do {
-            try process.run()
-            process.waitUntilExit()
-
-            if process.terminationStatus != 0 {
-                let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                if let errorOutput = String(data: data, encoding: .utf8) {
-                    print("osascript error: \(errorOutput)")
-                }
-            }
-        } catch {
-            print("Failed to run osascript: \(error)")
-        }
     }
     
     private func copyAllAsMarkdown() {
@@ -669,11 +573,26 @@ struct SectionHeader: View {
     }
 }
 
-private func executeResumeInspector(_ session: Session, terminal: TerminalType, bypass: Bool) {
+/// Execute resume session in terminal (unified global function for all CLI types)
+/// - Parameters:
+///   - session: The session to resume
+///   - terminal: Terminal type (Terminal.app, iTerm2, Warp)
+///   - bypass: Whether to bypass permission checks (Claude Code only)
+///   - cliType: The CLI tool type (Claude Code, OpenCode, Antigravity)
+private func executeResumeSession(_ session: Session, terminal: TerminalType, bypass: Bool, cliType: CLITool) {
     let projectPath = session.project
-    let resumeCommand = bypass
-        ? "claude -r \(session.resumeId) --dangerously-skip-permissions"
-        : "claude -r \(session.resumeId)"
+    
+    let resumeCommand: String
+    switch cliType {
+    case .claude:
+        resumeCommand = bypass
+            ? "claude -r \(session.resumeId) --dangerously-skip-permissions"
+            : "claude -r \(session.resumeId)"
+    case .opencode:
+        resumeCommand = "opencode --resume \(session.resumeId)"
+    case .antigravity:
+        resumeCommand = "antigravity --resume \(session.resumeId)"
+    }
 
     DispatchQueue.global(qos: .userInitiated).async {
         switch terminal {
@@ -761,6 +680,9 @@ struct InspectorPanel: View {
     @State private var isGeneratingSummary = false
     @State private var summaryCopySuccess = false
     @State private var summaryError: String? = nil
+    @State private var sessionInsights: SessionInsights? = nil
+    @State private var isLoadingInsights = false
+    @State private var sessionConfigUsage: SessionConfigUsage? = nil
 
     private let labelFont: Font = .system(size: 11)
     private let valueFont: Font = .system(size: 11)
@@ -820,6 +742,23 @@ struct InspectorPanel: View {
                         .font(smallFont)
                         .foregroundStyle(.tertiary)
                         .lineLimit(2)
+                }
+                
+                // MARK: - Session Insights (Claude Code only)
+                if appState.selectedCLI == .claude {
+                    Divider()
+                    
+                    SessionInsightsSection(
+                        session: session,
+                        insights: sessionInsights,
+                        isLoading: isLoadingInsights
+                    )
+                    
+                    if let usage = sessionConfigUsage, !usage.isEmpty {
+                        Divider()
+                        
+                        SessionConfigUsageSection(usage: usage)
+                    }
                 }
                 
                 Divider()
@@ -1059,22 +998,22 @@ struct InspectorPanel: View {
                     SectionHeader("Resume Session")
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
                         ResumeButton(label: "Terminal", icon: "terminal") {
-                            executeResumeInspector(session, terminal: .terminal, bypass: false)
+                            executeResumeSession(session, terminal: .terminal, bypass: false, cliType: .claude)
                         }
                         ResumeButton(label: "Terminal+", icon: "terminal.fill") {
-                            executeResumeInspector(session, terminal: .terminal, bypass: true)
+                            executeResumeSession(session, terminal: .terminal, bypass: true, cliType: .claude)
                         }
                         ResumeButton(label: "iTerm2", icon: "apple.terminal") {
-                            executeResumeInspector(session, terminal: .iterm, bypass: false)
+                            executeResumeSession(session, terminal: .iterm, bypass: false, cliType: .claude)
                         }
                         ResumeButton(label: "iTerm2+", icon: "apple.terminal.fill") {
-                            executeResumeInspector(session, terminal: .iterm, bypass: true)
+                            executeResumeSession(session, terminal: .iterm, bypass: true, cliType: .claude)
                         }
                         ResumeButton(label: "Warp", icon: "bolt.horizontal") {
-                            executeResumeInspector(session, terminal: .warp, bypass: false)
+                            executeResumeSession(session, terminal: .warp, bypass: false, cliType: .claude)
                         }
                         ResumeButton(label: "Warp+", icon: "bolt.horizontal.fill") {
-                            executeResumeInspector(session, terminal: .warp, bypass: true)
+                            executeResumeSession(session, terminal: .warp, bypass: true, cliType: .claude)
                         }
                     }
                 }
@@ -1093,6 +1032,29 @@ struct InspectorPanel: View {
             }
             .padding(12)
         }
+        .task {
+            await loadSessionInsights()
+        }
+        .onChange(of: session) { _, _ in
+            Task { await loadSessionInsights() }
+        }
+    }
+    
+    private func loadSessionInsights() async {
+        guard appState.selectedCLI == .claude else { return }
+        
+        isLoadingInsights = true
+        defer { isLoadingInsights = false }
+        
+        let service = SessionService()
+        do {
+            sessionInsights = try await service.loadSessionInsights(for: session)
+        } catch {
+            sessionInsights = nil
+        }
+        
+        let configService = ClaudeConfigService()
+        sessionConfigUsage = await configService.loadSessionConfigUsage(for: session, agent: appState.agentType)
     }
     
     private func addTag() {
@@ -1254,11 +1216,11 @@ struct InspectorPanel: View {
             // Try to parse as JSON first
             if let responseData = responseText.data(using: .utf8),
                let parsedResponse = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any] {
-                await processStructuredResponse(parsedResponse, provider: provider)
+                processStructuredResponse(parsedResponse, provider: provider)
             }
             // Try partial JSON parsing for truncated responses
             else if let partialResponse = parsePartialJSON(responseText) {
-                await processStructuredResponse(partialResponse, provider: provider)
+                processStructuredResponse(partialResponse, provider: provider)
             } else {
                 // Fallback: use raw text as summary (cleaned)
                 let cleanedText = responseText
@@ -1498,7 +1460,6 @@ struct InspectorPanel: View {
         return result.isEmpty ? nil : result
     }
 
-    @MainActor
     private func processStructuredResponse(_ response: [String: Any], provider: AIProvider) {
         // 1. Set the generated title
         if let title = response["title"] as? String {
@@ -4259,6 +4220,360 @@ extension ClaudePlan {
         case .pro: return 500
         case .max5: return 1000
         case .max20: return 2000
+        }
+    }
+}
+
+struct SessionInsightsSection: View {
+    let session: Session
+    let insights: SessionInsights?
+    let isLoading: Bool
+    
+    private let labelFont: Font = .system(size: 11)
+    private let smallFont: Font = .system(size: 10)
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader("Session Insights")
+            
+            if isLoading {
+                HStack {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                    Text("Loading insights...")
+                        .font(smallFont)
+                        .foregroundStyle(.secondary)
+                }
+            } else if let insights = insights, insights.totalToolCalls > 0 {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 16) {
+                        InsightMetricView(
+                            label: "Duration",
+                            value: insights.formattedDuration,
+                            icon: "clock",
+                            color: .blue
+                        )
+                        
+                        InsightMetricView(
+                            label: "Cost",
+                            value: String(format: "$%.2f", insights.estimatedCost),
+                            icon: "dollarsign.circle",
+                            color: .green
+                        )
+                    }
+                    
+                    Divider().padding(.vertical, 4)
+                    
+                    TokenUsageView(usage: insights.totalTokenUsage)
+                    
+                    if !insights.toolStatistics.isEmpty {
+                        Divider().padding(.vertical, 4)
+                        ToolUsageView(statistics: insights.toolStatistics)
+                    }
+                    
+                    if !insights.modelUsage.isEmpty {
+                        Divider().padding(.vertical, 4)
+                        ModelUsageView(models: insights.modelUsage)
+                    }
+                }
+            } else {
+                Text("No insights available")
+                    .font(labelFont)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+struct InsightMetricView: View {
+    let label: String
+    let value: String
+    let icon: String
+    let color: Color
+    
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 12))
+                .foregroundStyle(color)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .font(.system(size: 9))
+                    .foregroundStyle(.secondary)
+                Text(value)
+                    .font(.system(size: 12, weight: .semibold))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+struct TokenUsageView: View {
+    let usage: TokenUsage
+    
+    private var formattedTotal: String {
+        formatTokenCount(usage.totalTokens)
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("Token Usage")
+                    .font(.system(size: 10, weight: .medium))
+                Spacer()
+                Text(formattedTotal)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.purple)
+            }
+            
+            HStack(spacing: 12) {
+                TokenMetric(label: "Input", value: usage.inputTokens, color: .blue)
+                TokenMetric(label: "Output", value: usage.outputTokens, color: .green)
+                TokenMetric(label: "Cache", value: usage.cacheCreationInputTokens, color: .orange)
+            }
+        }
+    }
+    
+    private func formatTokenCount(_ count: Int) -> String {
+        if count >= 1_000_000 {
+            return String(format: "%.1fM", Double(count) / 1_000_000)
+        } else if count >= 1000 {
+            return String(format: "%.1fK", Double(count) / 1000)
+        }
+        return "\(count)"
+    }
+}
+
+struct TokenMetric: View {
+    let label: String
+    let value: Int
+    let color: Color
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.system(size: 9))
+                .foregroundStyle(.secondary)
+            Text(formatTokenCount(value))
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(color)
+        }
+    }
+    
+    private func formatTokenCount(_ count: Int) -> String {
+        if count >= 1_000_000 {
+            return String(format: "%.1fM", Double(count) / 1_000_000)
+        } else if count >= 1000 {
+            return String(format: "%.1fK", Double(count) / 1000)
+        }
+        return "\(count)"
+    }
+}
+
+struct ToolUsageView: View {
+    let statistics: [ToolStatistics]
+    @State private var isExpanded = false
+    
+    private var displayStats: [ToolStatistics] {
+        isExpanded ? statistics : Array(statistics.prefix(5))
+    }
+    
+    private var totalCalls: Int {
+        statistics.reduce(0) { $0 + $1.count }
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("Tool Usage")
+                    .font(.system(size: 10, weight: .medium))
+                Spacer()
+                Text("\(statistics.count) tools · \(totalCalls) calls")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.secondary)
+            }
+            
+            ForEach(displayStats, id: \.toolName) { stat in
+                ToolStatRow(stat: stat, maxCount: statistics.first?.count ?? 1)
+            }
+            
+            if statistics.count > 5 {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isExpanded.toggle()
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(isExpanded ? "Show Less" : "Show All (\(statistics.count))")
+                            .font(.system(size: 9))
+                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                            .font(.system(size: 8))
+                    }
+                    .foregroundStyle(.blue)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+}
+
+struct ToolStatRow: View {
+    let stat: ToolStatistics
+    let maxCount: Int
+    
+    private var progress: Double {
+        guard maxCount > 0 else { return 0 }
+        return Double(stat.count) / Double(maxCount)
+    }
+    
+    private var categoryColor: Color {
+        switch stat.category {
+        case .fileSystem: return .blue
+        case .codeEdit: return .orange
+        case .search: return .purple
+        case .execution: return .green
+        case .web: return .cyan
+        case .task: return .yellow
+        case .mcp: return .pink
+        case .other: return .gray
+        }
+    }
+    
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: stat.category.icon)
+                .font(.system(size: 9))
+                .foregroundStyle(categoryColor)
+                .frame(width: 14)
+            
+            Text(stat.toolName)
+                .font(.system(size: 10))
+                .lineLimit(1)
+            
+            Spacer()
+            
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(categoryColor.opacity(0.2))
+                    
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(categoryColor)
+                        .frame(width: geometry.size.width * progress)
+                }
+            }
+            .frame(width: 60, height: 6)
+            
+            Text("\(stat.count)")
+                .font(.system(size: 9, weight: .medium))
+                .foregroundStyle(.secondary)
+                .frame(width: 24, alignment: .trailing)
+        }
+    }
+}
+
+struct ModelUsageView: View {
+    let models: [ModelUsage]
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Model Usage")
+                .font(.system(size: 10, weight: .medium))
+            
+            ForEach(models, id: \.model) { model in
+                HStack {
+                    Text(model.displayName)
+                        .font(.system(size: 10))
+                    Spacer()
+                    Text("\(model.messageCount) msgs")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+}
+
+struct SessionConfigUsageSection: View {
+    let usage: SessionConfigUsage
+    
+    private let smallFont: Font = .system(size: 10)
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader("Used in Session")
+            
+            VStack(alignment: .leading, spacing: 8) {
+                if !usage.usedCommands.isEmpty {
+                    ConfigUsageRow(
+                        icon: "terminal",
+                        color: .blue,
+                        title: "Commands",
+                        items: usage.usedCommands
+                    )
+                }
+                
+                if !usage.usedSkills.isEmpty {
+                    ConfigUsageRow(
+                        icon: "sparkles",
+                        color: .purple,
+                        title: "Skills",
+                        items: usage.usedSkills
+                    )
+                }
+                
+                if !usage.triggeredHooks.isEmpty {
+                    ConfigUsageRow(
+                        icon: "link",
+                        color: .orange,
+                        title: "Hooks",
+                        items: usage.triggeredHooks
+                    )
+                }
+                
+                if !usage.invokedAgents.isEmpty {
+                    ConfigUsageRow(
+                        icon: "person.2",
+                        color: .green,
+                        title: "Agents",
+                        items: usage.invokedAgents
+                    )
+                }
+            }
+        }
+    }
+}
+
+struct ConfigUsageRow: View {
+    let icon: String
+    let color: Color
+    let title: String
+    let items: [String]
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 10))
+                    .foregroundStyle(color)
+                Text(title)
+                    .font(.system(size: 10, weight: .medium))
+                Text("(\(items.count))")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.secondary)
+            }
+            
+            FlowLayout(spacing: 4) {
+                ForEach(items, id: \.self) { item in
+                    Text(item)
+                        .font(.system(size: 9))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(color.opacity(0.15))
+                        .foregroundStyle(color)
+                        .clipShape(Capsule())
+                }
+            }
         }
     }
 }

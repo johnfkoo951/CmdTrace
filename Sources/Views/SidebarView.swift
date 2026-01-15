@@ -46,6 +46,14 @@ struct SidebarView: View {
                         }
                         
                         SidebarToggleButton(
+                            title: "Config",
+                            icon: "gearshape.2",
+                            isSelected: appState.selectedTab == .configuration
+                        ) {
+                            appState.selectedTab = .configuration
+                        }
+                        
+                        SidebarToggleButton(
                             title: "AI",
                             icon: "sparkles",
                             isSelected: appState.selectedTab == .interaction

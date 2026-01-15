@@ -18,6 +18,10 @@ struct ContentView: View {
                     .opacity(appState.selectedTab == .dashboard ? 1 : 0)
                     .allowsHitTesting(appState.selectedTab == .dashboard)
                 
+                ConfigurationView()
+                    .opacity(appState.selectedTab == .configuration ? 1 : 0)
+                    .allowsHitTesting(appState.selectedTab == .configuration)
+                
                 InteractionView()
                     .opacity(appState.selectedTab == .interaction ? 1 : 0)
                     .allowsHitTesting(appState.selectedTab == .interaction)
@@ -64,6 +68,8 @@ struct InspectorContent: View {
             }
         case .dashboard:
             DashboardInspectorPanel()
+        case .configuration:
+            ConfigurationInspectorPanel()
         case .interaction:
             AIInspectorPanel()
         }

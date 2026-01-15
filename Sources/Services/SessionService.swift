@@ -399,4 +399,154 @@ actor SessionService {
         }
         return textParts.joined(separator: "\n")
     }
+    
+    // MARK: - Session Insights (Tool Usage, Tokens, Hooks)
+    
+    func loadSessionInsights(for session: Session) async throws -> SessionInsights {
+        guard let projectFolder = session.projectFolder,
+              let fileName = session.fileName else {
+            return .empty
+        }
+        
+        let url = claudeBasePath
+            .appendingPathComponent(projectFolder)
+            .appendingPathComponent(fileName)
+        
+        guard fileManager.fileExists(atPath: url.path) else {
+            return .empty
+        }
+        
+        let content = try String(contentsOf: url, encoding: .utf8)
+        let lines = content.components(separatedBy: .newlines).filter { !$0.isEmpty }
+        
+        var toolCalls: [ToolCall] = []
+        var hookEvents: [HookEvent] = []
+        var totalTokenUsage = TokenUsage.zero
+        var modelUsageDict: [String: (count: Int, tokens: TokenUsage)] = [:]
+        var totalDurationMs = 0
+        
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        
+        for line in lines {
+            guard let data = line.data(using: .utf8),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let msgType = json["type"] as? String else {
+                continue
+            }
+            
+            let timestamp: Date?
+            if let ts = json["timestamp"] as? String {
+                timestamp = isoFormatter.date(from: ts)
+            } else {
+                timestamp = nil
+            }
+            
+            switch msgType {
+            case "assistant":
+                guard let messageObj = json["message"] as? [String: Any] else { continue }
+                
+                if let contentArray = messageObj["content"] as? [[String: Any]] {
+                    for item in contentArray {
+                        if let type = item["type"] as? String, type == "tool_use",
+                           let toolId = item["id"] as? String,
+                           let toolName = item["name"] as? String {
+                            var inputDict: [String: AnyCodable]? = nil
+                            if let input = item["input"] as? [String: Any] {
+                                inputDict = input.mapValues { AnyCodable($0) }
+                            }
+                            toolCalls.append(ToolCall(
+                                id: toolId,
+                                name: toolName,
+                                timestamp: timestamp,
+                                input: inputDict
+                            ))
+                        }
+                    }
+                }
+                
+                if let usage = messageObj["usage"] as? [String: Any] {
+                    let inputTokens = usage["input_tokens"] as? Int ?? 0
+                    let outputTokens = usage["output_tokens"] as? Int ?? 0
+                    let cacheCreation = usage["cache_creation_input_tokens"] as? Int ?? 0
+                    let cacheRead = usage["cache_read_input_tokens"] as? Int ?? 0
+                    
+                    let msgTokens = TokenUsage(
+                        inputTokens: inputTokens,
+                        outputTokens: outputTokens,
+                        cacheCreationInputTokens: cacheCreation,
+                        cacheReadInputTokens: cacheRead
+                    )
+                    totalTokenUsage = totalTokenUsage + msgTokens
+                    
+                    if let model = messageObj["model"] as? String {
+                        let existing = modelUsageDict[model] ?? (count: 0, tokens: .zero)
+                        modelUsageDict[model] = (
+                            count: existing.count + 1,
+                            tokens: existing.tokens + msgTokens
+                        )
+                    }
+                }
+                
+            case "system":
+                guard let subtype = json["subtype"] as? String else { continue }
+                
+                if subtype == "stop_hook_summary" {
+                    let hookCount = json["hookCount"] as? Int ?? 0
+                    var hookInfos: [HookEvent.HookInfo] = []
+                    if let infos = json["hookInfos"] as? [[String: Any]] {
+                        hookInfos = infos.compactMap { info in
+                            guard let cmd = info["command"] as? String else { return nil }
+                            return HookEvent.HookInfo(command: cmd)
+                        }
+                    }
+                    let hookErrors = json["hookErrors"] as? [String] ?? []
+                    let prevented = json["preventedContinuation"] as? Bool ?? false
+                    
+                    hookEvents.append(HookEvent(
+                        id: json["uuid"] as? String ?? UUID().uuidString,
+                        timestamp: timestamp ?? Date(),
+                        hookCount: hookCount,
+                        hookInfos: hookInfos,
+                        hookErrors: hookErrors,
+                        preventedContinuation: prevented
+                    ))
+                } else if subtype == "turn_duration" {
+                    if let duration = json["durationMs"] as? Int {
+                        totalDurationMs += duration
+                    }
+                }
+                
+            default:
+                break
+            }
+        }
+        
+        var toolCountDict: [String: Int] = [:]
+        for call in toolCalls {
+            toolCountDict[call.name, default: 0] += 1
+        }
+        let toolStatistics = toolCountDict.map { name, count in
+            ToolStatistics(
+                toolName: name,
+                count: count,
+                category: ToolCategory.from(toolName: name)
+            )
+        }.sorted { $0.count > $1.count }
+        
+        let modelUsage = modelUsageDict.map { model, data in
+            ModelUsage(model: model, messageCount: data.count, tokenUsage: data.tokens)
+        }.sorted { $0.messageCount > $1.messageCount }
+        
+        return SessionInsights(
+            sessionId: session.id,
+            toolCalls: toolCalls,
+            toolStatistics: toolStatistics,
+            hookEvents: hookEvents,
+            totalTokenUsage: totalTokenUsage,
+            modelUsage: modelUsage,
+            totalDurationMs: totalDurationMs,
+            generatedAt: Date()
+        )
+    }
 }

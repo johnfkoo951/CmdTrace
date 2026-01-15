@@ -5,12 +5,14 @@ import Observation
 enum AppTab: String, CaseIterable {
     case sessions = "Sessions"
     case dashboard = "Dashboard"
+    case configuration = "Configuration"
     case interaction = "Interaction"
     
     var icon: String {
         switch self {
         case .sessions: return "bubble.left.and.bubble.right"
         case .dashboard: return "chart.bar"
+        case .configuration: return "gearshape.2"
         case .interaction: return "sparkles"
         }
     }

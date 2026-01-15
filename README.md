@@ -162,6 +162,35 @@ swift run
 
 ---
 
+## Troubleshooting
+
+### ⚠️ "App is damaged" Warning
+
+This is macOS Gatekeeper blocking unsigned apps downloaded from the internet. Run this command in Terminal:
+
+```bash
+xattr -cr /Applications/CmdTrace.app
+```
+
+Or right-click the app and select "Open" (first time only).
+
+### 🔐 Resume Session Not Working
+
+CmdTrace needs permissions to control terminal apps via AppleScript.
+
+**System Settings → Privacy & Security → Automation:**
+- Enable: CmdTrace → Terminal ✓
+- Enable: CmdTrace → iTerm ✓
+
+**For Warp users (additional):**
+
+**System Settings → Privacy & Security → Accessibility:**
+- Add CmdTrace to the list ✓
+
+These permissions allow CmdTrace to open terminal windows and paste resume commands.
+
+---
+
 ## Search Queries
 
 CmdTrace supports powerful search operators to find sessions quickly.

@@ -114,7 +114,7 @@ struct ContentItem: Codable {
     let id: String?
 }
 
-struct AnyCodable: Codable {
+struct AnyCodable: Codable, Hashable {
     let value: Any
     
     init(_ value: Any) {
@@ -123,11 +123,7 @@ struct AnyCodable: Codable {
     
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
-        if let dict = try? container.decode([String: AnyCodable].self) {
-            value = dict.mapValues { $0.value }
-        } else if let array = try? container.decode([AnyCodable].self) {
-            value = array.map { $0.value }
-        } else if let string = try? container.decode(String.self) {
+        if let string = try? container.decode(String.self) {
             value = string
         } else if let int = try? container.decode(Int.self) {
             value = int
@@ -135,6 +131,10 @@ struct AnyCodable: Codable {
             value = double
         } else if let bool = try? container.decode(Bool.self) {
             value = bool
+        } else if let array = try? container.decode([AnyCodable].self) {
+            value = array.map { $0.value }
+        } else if let dict = try? container.decode([String: AnyCodable].self) {
+            value = dict.mapValues { $0.value }
         } else {
             value = ""
         }
@@ -153,5 +153,13 @@ struct AnyCodable: Codable {
         } else {
             try container.encodeNil()
         }
+    }
+    
+    static func == (lhs: AnyCodable, rhs: AnyCodable) -> Bool {
+        String(describing: lhs.value) == String(describing: rhs.value)
+    }
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(String(describing: value))
     }
 }
