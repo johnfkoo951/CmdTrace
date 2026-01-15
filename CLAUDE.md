@@ -177,8 +177,58 @@ When executing CLI tools (ccusage, claude-monitor) from the GUI:
 - `Cmd+1/2/3`: Switch tabs (Sessions/Dashboard/AI)
 
 ## Version
+## Development Roadmap
 
-Current: v2.3.0
+### Completed (v2.3.0)
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| Search Enhancement | `date:`, `regex:`, `messages:` operators | ✅ |
+| Export Sessions | Markdown, JSON, Plain Text, HTML | ✅ |
+| Session Diff | Side-by-side comparison | ✅ |
+| Statistics Dashboard | 30-day activity, project/tag distribution | ✅ |
+| Keyboard Navigation | ↑↓ in session list | ✅ |
+| Markdown Tables | Improved rendering with auto-width | ✅ |
+| Inspector Reorganization | Session Info → Summary → Actions → Details | ✅ |
+
+### In Progress (v2.4.0-alpha)
+
+| Feature | Description | Priority |
+|---------|-------------|----------|
+| Cloud Sync | iCloud sync for metadata, tags, summaries | High |
+| Search Highlighting | Highlight matches in conversation view | Medium |
+| Session Archive | Archive old sessions to reduce clutter | Medium |
+| Bulk Operations | Multi-select for tags, export, delete | Medium |
+
+### Planned (v2.5.0+)
+
+| Feature | Description | Priority |
+|---------|-------------|----------|
+| Menu Bar App | Quick access widget in menu bar | High |
+| Global Hotkey | System-wide shortcut to open CmdTrace | High |
+| Session Merge | Combine multiple sessions | Medium |
+| Full-text Index | SQLite FTS for faster content search | Medium |
+| Timeline View | Visual timeline of all sessions | Low |
+| Widgets | macOS widgets for recent sessions | Low |
+| Shortcuts Integration | Siri Shortcuts support | Low |
+
+### Known Issues
+
+| Issue | Description | Workaround |
+|-------|-------------|------------|
+| Cloud Sync | CloudKit container not configured | Coming Soon |
+| Large Sessions | Slow loading for 1000+ message sessions | Pagination planned |
+
+### Development Notes
+
+**Current Focus**: Cloud Sync 구현 완료 후 v2.4.0 릴리즈 예정
+
+**Tech Debt**:
+- DetailView.swift 크기 (3700+ lines) → 분리 필요
+- Session loading 최적화 필요
+
+
+Current: v2.4.0-alpha
 
 ### Version Management
 
