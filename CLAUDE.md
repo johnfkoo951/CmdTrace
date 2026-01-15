@@ -191,19 +191,20 @@ When executing CLI tools (ccusage, claude-monitor) from the GUI:
 | Markdown Tables | Improved rendering with auto-width | ✅ |
 | Inspector Reorganization | Session Info → Summary → Actions → Details | ✅ |
 
-### In Progress (v2.4.0-alpha)
+### Completed (v2.4.0)
 
-| Feature | Description | Priority |
-|---------|-------------|----------|
-| Cloud Sync | iCloud sync for metadata, tags, summaries | High |
-| Search Highlighting | Highlight matches in conversation view | Medium |
-| Session Archive | Archive old sessions to reduce clutter | Medium |
-| Bulk Operations | Multi-select for tags, export, delete | Medium |
+| Feature | Description | Status |
+|---------|-------------|--------|
+| Session Archive | Archive/unarchive sessions, bulk archive, auto-archive old sessions | ✅ |
+| Bulk Operations | Multi-select, bulk tag/archive/favorite, select all | ✅ |
+| Search Highlighting | AttributedString-based highlighting in conversation | ✅ |
+| Cloud Sync UI | Settings UI for iCloud sync (backend pending) | ⚠️ UI Only |
 
 ### Planned (v2.5.0+)
 
 | Feature | Description | Priority |
 |---------|-------------|----------|
+| Cloud Sync Backend | CloudKit container setup, actual sync | High |
 | Menu Bar App | Quick access widget in menu bar | High |
 | Global Hotkey | System-wide shortcut to open CmdTrace | High |
 | Session Merge | Combine multiple sessions | Medium |
@@ -216,12 +217,12 @@ When executing CLI tools (ccusage, claude-monitor) from the GUI:
 
 | Issue | Description | Workaround |
 |-------|-------------|------------|
-| Cloud Sync | CloudKit container not configured | Coming Soon |
+| Cloud Sync | CloudKit container not configured | UI ready, backend v2.5.0 |
 | Large Sessions | Slow loading for 1000+ message sessions | Pagination planned |
 
 ### Development Notes
 
-**Current Focus**: Cloud Sync 구현 완료 후 v2.4.0 릴리즈 예정
+**Current Focus**: v2.4.0 테스트 완료 후 정식 릴리즈, 이후 v2.5.0에서 Cloud Sync 백엔드 구현
 
 **Tech Debt**:
 - DetailView.swift 크기 (3700+ lines) → 분리 필요
