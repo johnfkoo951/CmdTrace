@@ -89,6 +89,17 @@ struct SidebarView: View {
                     }
                     .buttonStyle(.plain)
                     .help(state.showFavoritesOnly ? "Show All" : "Show Favorites Only")
+                    
+                    Button {
+                        state.showArchivedSessions.toggle()
+                        appState.filterSessions()
+                    } label: {
+                        Image(systemName: state.showArchivedSessions ? "archivebox.fill" : "archivebox")
+                            .font(.system(size: 13))
+                            .foregroundStyle(state.showArchivedSessions ? .orange : .secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help(state.showArchivedSessions ? "Hide Archived" : "Show Archived")
                 }
                 .padding(.horizontal, 12)
                 .padding(.top, 10)
@@ -136,7 +147,10 @@ struct SidebarView: View {
             }
             // END FIXED HEADER
             
-            // SCROLLABLE CONTENT
+            if appState.isMultiSelectMode {
+                BulkActionBar()
+            }
+            
             if appState.sidebarViewMode == .list {
                 if appState.isLoading {
                     Spacer()
@@ -897,9 +911,21 @@ struct SessionRow: View {
 
     var isFavorite: Bool { appState.isFavorite(session.id) }
     var isPinned: Bool { appState.isPinned(session.id) }
+    var isArchived: Bool { appState.isArchived(session.id) }
+    var isSelected: Bool { appState.selectedSessionIds.contains(session.id) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        HStack(spacing: 8) {
+            if appState.isMultiSelectMode {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 16))
+                    .foregroundStyle(isSelected ? Color.accentColor : .secondary)
+                    .onTapGesture {
+                        appState.toggleSessionSelection(session.id)
+                    }
+            }
+            
+            VStack(alignment: .leading, spacing: 8) {
             // Row 1: Title with favorite star on left + message count badge
             HStack(spacing: 8) {
                 // Favorite star indicator (prominent, left side like website)
@@ -1010,8 +1036,14 @@ struct SessionRow: View {
                 }
             }
         }
+        }
         .padding(.vertical, 6)
         .padding(.horizontal, 4)
+        .onTapGesture {
+            if NSEvent.modifierFlags.contains(.command) {
+                appState.toggleSessionSelection(session.id)
+            }
+        }
         .contextMenu {
             Button {
                 appState.toggleFavorite(for: session.id)
@@ -1025,6 +1057,13 @@ struct SessionRow: View {
             } label: {
                 Label(isPinned ? "Unpin" : "Pin to Top",
                       systemImage: isPinned ? "pin.slash" : "pin")
+            }
+            
+            Button {
+                appState.toggleArchive(for: session.id)
+            } label: {
+                Label(isArchived ? "Unarchive" : "Archive",
+                      systemImage: isArchived ? "arrow.uturn.backward" : "archivebox")
             }
             
             Divider()
@@ -1095,6 +1134,15 @@ struct SessionRow: View {
                 NSPasteboard.general.setString(session.id, forType: .string)
             } label: {
                 Label("Copy Session ID", systemImage: "doc.on.doc")
+            }
+            
+            Divider()
+            
+            Button {
+                appState.toggleSessionSelection(session.id)
+            } label: {
+                Label(isSelected ? "Deselect" : "Select for Bulk Action",
+                      systemImage: isSelected ? "checkmark.circle.fill" : "circle")
             }
         }
         .sheet(isPresented: $showRenameSheet) {
@@ -1278,14 +1326,115 @@ struct TagSheet: View {
     }
 }
 
-// MARK: - Stats Bar (Website-inspired)
+struct BulkActionBar: View {
+    @Environment(AppState.self) private var appState
+    @State private var showTagMenu = false
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                Text("\(appState.selectedSessionIds.count) selected")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
+                
+                Spacer()
+                
+                Button {
+                    appState.selectAllFilteredSessions()
+                } label: {
+                    Text("Select All")
+                        .font(.system(size: 11))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.accentColor)
+                
+                Button {
+                    appState.clearSelection()
+                } label: {
+                    Text("Clear")
+                        .font(.system(size: 11))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            
+            HStack(spacing: 8) {
+                Button {
+                    appState.bulkToggleFavorite()
+                } label: {
+                    Image(systemName: "star")
+                        .font(.system(size: 12))
+                }
+                .buttonStyle(.plain)
+                .help("Toggle Favorites")
+                
+                Menu {
+                    ForEach(appState.allTags) { tag in
+                        Button {
+                            appState.bulkAddTag(tag.name)
+                        } label: {
+                            Label(tag.name, systemImage: "tag")
+                        }
+                    }
+                    
+                    if !appState.allTags.isEmpty {
+                        Divider()
+                    }
+                    
+                    ForEach(appState.allTags) { tag in
+                        Button(role: .destructive) {
+                            appState.bulkRemoveTag(tag.name)
+                        } label: {
+                            Label("Remove \(tag.name)", systemImage: "tag.slash")
+                        }
+                    }
+                } label: {
+                    Image(systemName: "tag")
+                        .font(.system(size: 12))
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .help("Manage Tags")
+                
+                if appState.showArchivedSessions {
+                    Button {
+                        appState.bulkUnarchive()
+                    } label: {
+                        Image(systemName: "arrow.uturn.backward")
+                            .font(.system(size: 12))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Unarchive Selected")
+                } else {
+                    Button {
+                        appState.bulkArchive()
+                    } label: {
+                        Image(systemName: "archivebox")
+                            .font(.system(size: 12))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Archive Selected")
+                }
+                
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.bottom, 8)
+            
+            Divider()
+        }
+        .background(Color.accentColor.opacity(0.1))
+    }
+}
+
 struct StatsBar: View {
     @Environment(AppState.self) private var appState
     @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         HStack(spacing: 16) {
-            // Settings button
             Button {
                 openSettings()
             } label: {
@@ -1299,7 +1448,6 @@ struct StatsBar: View {
             Divider()
                 .frame(height: 18)
 
-            // Sessions count badge with label
             HStack(spacing: 6) {
                 Image(systemName: "doc.text")
                     .font(.system(size: 12))
@@ -1312,7 +1460,6 @@ struct StatsBar: View {
 
             Spacer()
 
-            // Total messages badge with label
             let totalMessages = appState.filteredSessions.reduce(0) { $0 + $1.messageCount }
             HStack(spacing: 6) {
                 Image(systemName: "bubble.left.and.bubble.right")

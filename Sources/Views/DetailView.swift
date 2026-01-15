@@ -964,6 +964,15 @@ struct InspectorPanel: View {
                     ) {
                         sendToObsidian()
                     }
+                    
+                    QuickActionButton(
+                        label: appState.isArchived(session.id) ? "Unarchive" : "Archive",
+                        icon: appState.isArchived(session.id) ? "arrow.uturn.backward" : "archivebox",
+                        color: .gray,
+                        isActive: appState.isArchived(session.id)
+                    ) {
+                        appState.toggleArchive(for: session.id)
+                    }
                 }
                 
                 // MARK: - 5. Resume Session (Claude only)
@@ -1695,7 +1704,50 @@ struct InspectorPanel: View {
 
 
 
-// MARK: - Message Bubble
+struct HighlightedText: View {
+    let text: String
+    let searchTerm: String?
+    let highlightColor: Color
+    
+    init(_ text: String, searchTerm: String? = nil, highlightColor: Color = .yellow.opacity(0.4)) {
+        self.text = text
+        self.searchTerm = searchTerm
+        self.highlightColor = highlightColor
+    }
+    
+    var body: some View {
+        if let searchTerm = searchTerm, !searchTerm.isEmpty {
+            highlightedTextView
+        } else {
+            Text(text)
+        }
+    }
+    
+    private var highlightedTextView: some View {
+        let searchLower = searchTerm!.lowercased()
+        let textLower = text.lowercased()
+        
+        if let range = textLower.range(of: searchLower) {
+            let beforeIndex = text.index(text.startIndex, offsetBy: textLower.distance(from: textLower.startIndex, to: range.lowerBound))
+            let afterIndex = text.index(text.startIndex, offsetBy: textLower.distance(from: textLower.startIndex, to: range.upperBound))
+            
+            let before = String(text[..<beforeIndex])
+            let match = String(text[beforeIndex..<afterIndex])
+            let after = String(text[afterIndex...])
+            
+            var attributed = AttributedString(before)
+            var highlight = AttributedString(match)
+            highlight.backgroundColor = highlightColor
+            highlight.foregroundColor = .black
+            attributed.append(highlight)
+            attributed.append(AttributedString(after))
+            return Text(attributed)
+        } else {
+            return Text(text)
+        }
+    }
+}
+
 struct MessageBubble: View {
     let message: Message
     @Environment(AppState.self) private var appState
@@ -1772,13 +1824,21 @@ struct MessageBubble: View {
                 }
                 
                 if appState.settings.renderMarkdown {
-                    MarkdownText(message.content)
-                        .textSelection(.enabled)
-                        .padding(12)
-                        .background(bubbleColor)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    if let searchTerm = appState.currentSearchTerm, !searchTerm.isEmpty {
+                        HighlightedText(message.content, searchTerm: searchTerm)
+                            .textSelection(.enabled)
+                            .padding(12)
+                            .background(bubbleColor)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                    } else {
+                        MarkdownText(message.content)
+                            .textSelection(.enabled)
+                            .padding(12)
+                            .background(bubbleColor)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
                 } else {
-                    Text(message.content)
+                    HighlightedText(message.content, searchTerm: appState.currentSearchTerm)
                         .font(.body)
                         .textSelection(.enabled)
                         .padding(12)

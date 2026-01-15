@@ -89,6 +89,8 @@ struct TagInfo: Codable, Identifiable, Equatable, Hashable {
 struct SessionMetadata: Codable, Equatable {
     var isFavorite: Bool = false
     var isPinned: Bool = false
+    var isArchived: Bool = false
+    var archivedAt: Date?
     var customName: String?
     var tags: [String] = []
 }
@@ -266,6 +268,16 @@ final class AppState {
     var showFavoritesOnly: Bool = false
     var showInspector: Bool = false
     
+    // Archive
+    var showArchivedSessions: Bool = false
+    
+    // Multi-select (Bulk Operations)
+    var selectedSessionIds: Set<String> = []
+    var isMultiSelectMode: Bool = false
+    
+    // Search highlighting
+    var currentSearchTerm: String?
+    
     // Settings
     var settings: AppSettings = AppSettings()
     
@@ -405,12 +417,14 @@ final class AppState {
     func filterSessions() {
         var result = sessions
         
-        // Filter by favorites
+        if !showArchivedSessions {
+            result = result.filter { sessionMetadata[$0.id]?.isArchived != true }
+        }
+        
         if showFavoritesOnly {
             result = result.filter { sessionMetadata[$0.id]?.isFavorite == true }
         }
         
-        // Filter by tag
         if let tag = selectedTag {
             result = result.filter { sessionMetadata[$0.id]?.tags.contains(tag) == true }
         }
@@ -471,6 +485,7 @@ final class AppState {
                 }
             } else {
                 let term = query.lowercased()
+                currentSearchTerm = term
                 result = result.filter { session in
                     session.title.lowercased().contains(term) ||
                     session.project.lowercased().contains(term) ||
@@ -479,6 +494,8 @@ final class AppState {
                     (sessionMetadata[session.id]?.tags.contains { $0.lowercased().contains(term) } == true)
                 }
             }
+        } else {
+            currentSearchTerm = nil
         }
         
         // Sort: pinned first
@@ -627,6 +644,103 @@ final class AppState {
     
     func isPinned(_ sessionId: String) -> Bool {
         sessionMetadata[sessionId]?.isPinned == true
+    }
+    
+    func isArchived(_ sessionId: String) -> Bool {
+        sessionMetadata[sessionId]?.isArchived == true
+    }
+    
+    func toggleArchive(for sessionId: String) {
+        var meta = sessionMetadata[sessionId] ?? SessionMetadata()
+        meta.isArchived.toggle()
+        meta.archivedAt = meta.isArchived ? Date() : nil
+        sessionMetadata[sessionId] = meta
+        filterSessions()
+        saveUserData()
+    }
+    
+    func archiveOldSessions(olderThan days: Int) {
+        let cutoffDate = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
+        for session in sessions {
+            if session.lastActivity < cutoffDate {
+                var meta = sessionMetadata[session.id] ?? SessionMetadata()
+                if !meta.isArchived {
+                    meta.isArchived = true
+                    meta.archivedAt = Date()
+                    sessionMetadata[session.id] = meta
+                }
+            }
+        }
+        filterSessions()
+        saveUserData()
+    }
+    
+    // MARK: - Bulk Operations
+    func bulkAddTag(_ tagName: String) {
+        for sessionId in selectedSessionIds {
+            addTag(tagName, to: sessionId)
+        }
+    }
+    
+    func bulkRemoveTag(_ tagName: String) {
+        for sessionId in selectedSessionIds {
+            removeTag(tagName, from: sessionId)
+        }
+    }
+    
+    func bulkArchive() {
+        for sessionId in selectedSessionIds {
+            var meta = sessionMetadata[sessionId] ?? SessionMetadata()
+            if !meta.isArchived {
+                meta.isArchived = true
+                meta.archivedAt = Date()
+                sessionMetadata[sessionId] = meta
+            }
+        }
+        selectedSessionIds.removeAll()
+        isMultiSelectMode = false
+        filterSessions()
+        saveUserData()
+    }
+    
+    func bulkUnarchive() {
+        for sessionId in selectedSessionIds {
+            var meta = sessionMetadata[sessionId] ?? SessionMetadata()
+            meta.isArchived = false
+            meta.archivedAt = nil
+            sessionMetadata[sessionId] = meta
+        }
+        selectedSessionIds.removeAll()
+        isMultiSelectMode = false
+        filterSessions()
+        saveUserData()
+    }
+    
+    func bulkToggleFavorite() {
+        for sessionId in selectedSessionIds {
+            toggleFavorite(for: sessionId)
+        }
+        selectedSessionIds.removeAll()
+        isMultiSelectMode = false
+    }
+    
+    func clearSelection() {
+        selectedSessionIds.removeAll()
+        isMultiSelectMode = false
+    }
+    
+    func toggleSessionSelection(_ sessionId: String) {
+        if selectedSessionIds.contains(sessionId) {
+            selectedSessionIds.remove(sessionId)
+        } else {
+            selectedSessionIds.insert(sessionId)
+        }
+        isMultiSelectMode = !selectedSessionIds.isEmpty
+    }
+    
+    func selectAllFilteredSessions() {
+        selectedSessionIds = Set(filteredSessions.map { $0.id })
+        isMultiSelectMode = !selectedSessionIds.isEmpty
     }
     
     // MARK: - Tag Database Helpers

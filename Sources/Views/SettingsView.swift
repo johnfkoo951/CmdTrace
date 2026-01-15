@@ -712,40 +712,111 @@ struct CLIIconPicker: View {
 
 struct CloudSyncSettingsView: View {
     @Environment(AppState.self) private var appState
+    @State private var isEnabling = false
+    @State private var errorMessage: String?
+    @State private var showDisableConfirmation = false
     
     var body: some View {
-        @Bindable var state = appState
-        
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "icloud")
                     .font(.title2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(appState.settings.cloudSyncEnabled ? .blue : .secondary)
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("iCloud Sync")
                         .font(.headline)
                     
-                    Text("Requires Apple Developer setup")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
+                    if appState.settings.cloudSyncEnabled {
+                        Text("Sync enabled")
+                            .font(.caption)
+                            .foregroundStyle(.green)
+                    } else {
+                        Text("Sync your session metadata across devices")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 
                 Spacer()
                 
-                Text("Coming Soon")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(.quaternary)
-                    .clipShape(Capsule())
+                if isEnabling {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                } else {
+                    Toggle("", isOn: Binding(
+                        get: { appState.settings.cloudSyncEnabled },
+                        set: { newValue in
+                            if newValue {
+                                Task { await enableSync() }
+                            } else {
+                                showDisableConfirmation = true
+                            }
+                        }
+                    ))
+                    .labelsHidden()
+                }
             }
             
-            Text("CloudKit container must be configured in Apple Developer Console before enabling sync.")
+            if let error = errorMessage {
+                HStack(spacing: 4) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+            }
+            
+            if appState.settings.cloudSyncEnabled {
+                HStack(spacing: 12) {
+                    SyncStatusView(status: appState.cloudSyncStatus)
+                    
+                    if let lastSync = appState.lastCloudSyncDate {
+                        Text("Last sync: \(lastSync.formatted(date: .abbreviated, time: .shortened))")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                    
+                    Spacer()
+                    
+                    Button {
+                        Task { await appState.performCloudSync() }
+                    } label: {
+                        Label("Sync Now", systemImage: "arrow.triangle.2.circlepath")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(appState.cloudSyncStatus == .syncing)
+                }
+            }
+            
+            Text("Syncs session names, tags, favorites, and summaries via iCloud.")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
         }
+        .confirmationDialog("Disable iCloud Sync?", isPresented: $showDisableConfirmation) {
+            Button("Disable Sync", role: .destructive) {
+                Task { await appState.disableCloudSync() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Your data will remain on this device but won't sync to other devices.")
+        }
+    }
+    
+    private func enableSync() async {
+        isEnabling = true
+        errorMessage = nil
+        
+        do {
+            try await appState.enableCloudSync()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        
+        isEnabling = false
     }
 }
 
