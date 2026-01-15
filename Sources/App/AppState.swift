@@ -172,7 +172,10 @@ struct AppSettings: Codable, Equatable {
     
     // Tags
     var tagSortMode: TagSortMode = .important
-    var visibleTagsInList: [String] = [] // which tags to show in list view
+    var visibleTagsInList: [String] = []
+    
+    // Cloud Sync
+    var cloudSyncEnabled: Bool = false
 
     // Context Summary Settings
     var contextMaxMessages: Int = 50
@@ -275,12 +278,14 @@ final class AppState {
     // Summaries
     var sessionSummaries: [String: SessionSummary] = [:]
     
-    // Pre-cached sessions for all CLIs (instant switching)
     private var cachedSessions: [AgentType: [Session]] = [:]
     private var cacheLoadingStatus: [AgentType: Bool] = [:]
     
     private let sessionService = SessionService()
     private let dataURL: URL
+    
+    var cloudSyncStatus: CloudSyncService.SyncStatus = .idle
+    var lastCloudSyncDate: Date?
     
     init() {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
@@ -435,6 +440,35 @@ final class AppState {
                 result = result.filter { session in
                     session.preview.lowercased().contains(term)
                 }
+            } else if query.hasPrefix("date:") {
+                // Date filter: date:today, date:yesterday, date:week, date:month, date:2024-01-15, date:2024-01-01..2024-01-31
+                let term = String(query.dropFirst(5)).trimmingCharacters(in: .whitespaces)
+                result = result.filter { session in
+                    matchesDateFilter(session: session, dateFilter: term)
+                }
+            } else if query.hasPrefix("regex:") {
+                // Regex search in title, project, and preview
+                let pattern = String(query.dropFirst(6)).trimmingCharacters(in: .whitespaces)
+                if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
+                    result = result.filter { session in
+                        let searchTargets = [
+                            session.title,
+                            session.project,
+                            session.preview,
+                            sessionMetadata[session.id]?.customName ?? ""
+                        ]
+                        return searchTargets.contains { target in
+                            let range = NSRange(target.startIndex..., in: target)
+                            return regex.firstMatch(in: target, options: [], range: range) != nil
+                        }
+                    }
+                }
+            } else if query.hasPrefix("messages:") {
+                // Message count filter: messages:>10, messages:<5, messages:=20, messages:10..50
+                let term = String(query.dropFirst(9)).trimmingCharacters(in: .whitespaces)
+                result = result.filter { session in
+                    matchesMessageCountFilter(session: session, filter: term)
+                }
             } else {
                 let term = query.lowercased()
                 result = result.filter { session in
@@ -458,6 +492,79 @@ final class AppState {
         }
         
         filteredSessions = result
+    }
+    
+    // MARK: - Search Filter Helpers
+    
+    private func matchesDateFilter(session: Session, dateFilter: String) -> Bool {
+        let calendar = Calendar.current
+        let sessionDate = session.lastActivity
+        let today = calendar.startOfDay(for: Date())
+        
+        switch dateFilter.lowercased() {
+        case "today":
+            return calendar.isDateInToday(sessionDate)
+        case "yesterday":
+            return calendar.isDateInYesterday(sessionDate)
+        case "week":
+            guard let weekAgo = calendar.date(byAdding: .day, value: -7, to: today) else { return false }
+            return sessionDate >= weekAgo
+        case "month":
+            guard let monthAgo = calendar.date(byAdding: .month, value: -1, to: today) else { return false }
+            return sessionDate >= monthAgo
+        default:
+            // Check for date range: 2024-01-01..2024-01-31
+            if dateFilter.contains("..") {
+                let parts = dateFilter.split(separator: ".").map(String.init).filter { !$0.isEmpty }
+                if parts.count == 2 {
+                    let formatter = DateFormatter()
+                    formatter.dateFormat = "yyyy-MM-dd"
+                    if let startDate = formatter.date(from: parts[0]),
+                       let endDate = formatter.date(from: parts[1]) {
+                        let startOfStart = calendar.startOfDay(for: startDate)
+                        let endOfEnd = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: endDate)) ?? endDate
+                        return sessionDate >= startOfStart && sessionDate < endOfEnd
+                    }
+                }
+            }
+            // Check for specific date: 2024-01-15
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd"
+            if let specificDate = formatter.date(from: dateFilter) {
+                return calendar.isDate(sessionDate, inSameDayAs: specificDate)
+            }
+            return false
+        }
+    }
+    
+    private func matchesMessageCountFilter(session: Session, filter: String) -> Bool {
+        let count = session.messageCount
+        
+        // Range: 10..50
+        if filter.contains("..") {
+            let parts = filter.split(separator: ".").map(String.init).filter { !$0.isEmpty }
+            if parts.count == 2, let min = Int(parts[0]), let max = Int(parts[1]) {
+                return count >= min && count <= max
+            }
+        }
+        
+        // Comparison: >10, <5, >=20, <=30, =15
+        if filter.hasPrefix(">="), let value = Int(filter.dropFirst(2)) {
+            return count >= value
+        } else if filter.hasPrefix("<="), let value = Int(filter.dropFirst(2)) {
+            return count <= value
+        } else if filter.hasPrefix(">"), let value = Int(filter.dropFirst(1)) {
+            return count > value
+        } else if filter.hasPrefix("<"), let value = Int(filter.dropFirst(1)) {
+            return count < value
+        } else if filter.hasPrefix("="), let value = Int(filter.dropFirst(1)) {
+            return count == value
+        } else if let value = Int(filter) {
+            // Exact match if just a number
+            return count == value
+        }
+        
+        return false
     }
     
     // MARK: - Session Metadata Helpers
@@ -662,6 +769,52 @@ final class AppState {
         }
         if let data = try? JSONEncoder().encode(sessionSummaries) {
             try? data.write(to: summariesURL)
+        }
+    }
+    
+    @MainActor
+    func checkCloudAccountStatus() async -> Bool {
+        await CloudSyncService.shared.checkAccountStatus()
+    }
+    
+    @MainActor
+    func enableCloudSync() async throws {
+        try await CloudSyncService.shared.enableSync()
+        settings.cloudSyncEnabled = true
+        saveUserData()
+    }
+    
+    @MainActor
+    func disableCloudSync() async {
+        await CloudSyncService.shared.disableSync()
+        settings.cloudSyncEnabled = false
+        cloudSyncStatus = .idle
+        saveUserData()
+    }
+    
+    @MainActor
+    func performCloudSync() async {
+        guard settings.cloudSyncEnabled else { return }
+        
+        cloudSyncStatus = .syncing
+        
+        do {
+            let (mergedMeta, mergedSummaries, mergedTags) = try await CloudSyncService.shared.performFullSync(
+                metadata: sessionMetadata,
+                summaries: sessionSummaries,
+                tags: tagDatabase
+            )
+            
+            sessionMetadata = mergedMeta
+            sessionSummaries = mergedSummaries
+            tagDatabase = mergedTags
+            
+            lastCloudSyncDate = Date()
+            cloudSyncStatus = .success(lastCloudSyncDate!)
+            saveUserData()
+            filterSessions()
+        } catch {
+            cloudSyncStatus = .error(error.localizedDescription)
         }
     }
 }

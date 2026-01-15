@@ -424,6 +424,8 @@ actor SessionService {
         var totalTokenUsage = TokenUsage.zero
         var modelUsageDict: [String: (count: Int, tokens: TokenUsage)] = [:]
         var totalDurationMs = 0
+        var fileChanges: [FileChange] = []
+        var errorMessages: [String: (count: Int, timestamp: Date?, toolName: String?)] = [:]
         
         let isoFormatter = ISO8601DateFormatter()
         isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -461,6 +463,31 @@ actor SessionService {
                                 timestamp: timestamp,
                                 input: inputDict
                             ))
+                            
+                            if let input = item["input"] as? [String: Any] {
+                                if toolName.lowercased() == "write" || toolName.lowercased() == "edit" {
+                                    if let filePath = input["filePath"] as? String ?? input["file_path"] as? String {
+                                        let changeType: FileChangeType = toolName.lowercased() == "write" ? .created : .modified
+                                        fileChanges.append(FileChange(
+                                            id: toolId,
+                                            filePath: filePath,
+                                            changeType: changeType,
+                                            timestamp: timestamp,
+                                            lineCount: nil
+                                        ))
+                                    }
+                                } else if toolName.lowercased() == "read" {
+                                    if let filePath = input["filePath"] as? String ?? input["file_path"] as? String {
+                                        fileChanges.append(FileChange(
+                                            id: toolId,
+                                            filePath: filePath,
+                                            changeType: .read,
+                                            timestamp: timestamp,
+                                            lineCount: nil
+                                        ))
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -517,6 +544,24 @@ actor SessionService {
                     }
                 }
                 
+            case "user":
+                if let messageObj = json["message"] as? [String: Any],
+                   let contentArray = messageObj["content"] as? [[String: Any]] {
+                    for item in contentArray {
+                        if let type = item["type"] as? String, type == "tool_result",
+                           let isError = item["is_error"] as? Bool, isError,
+                           let content = item["content"] as? String {
+                            let toolId = item["tool_use_id"] as? String
+                            let existing = errorMessages[content] ?? (count: 0, timestamp: nil, toolName: nil)
+                            errorMessages[content] = (
+                                count: existing.count + 1,
+                                timestamp: timestamp ?? existing.timestamp,
+                                toolName: toolId ?? existing.toolName
+                            )
+                        }
+                    }
+                }
+                
             default:
                 break
             }
@@ -538,6 +583,22 @@ actor SessionService {
             ModelUsage(model: model, messageCount: data.count, tokenUsage: data.tokens)
         }.sorted { $0.messageCount > $1.messageCount }
         
+        let errorEvents = errorMessages.map { msg, data in
+            ErrorEvent(
+                id: UUID().uuidString,
+                message: msg,
+                timestamp: data.timestamp,
+                toolName: data.toolName,
+                count: data.count
+            )
+        }.sorted { $0.count > $1.count }
+        
+        let uniqueFileChanges = Dictionary(grouping: fileChanges, by: { $0.filePath })
+            .compactMap { _, changes -> FileChange? in
+                let writes = changes.filter { $0.changeType == .created || $0.changeType == .modified }
+                return writes.last ?? changes.last
+            }
+        
         return SessionInsights(
             sessionId: session.id,
             toolCalls: toolCalls,
@@ -546,7 +607,9 @@ actor SessionService {
             totalTokenUsage: totalTokenUsage,
             modelUsage: modelUsage,
             totalDurationMs: totalDurationMs,
-            generatedAt: Date()
+            generatedAt: Date(),
+            fileChanges: uniqueFileChanges,
+            errorEvents: errorEvents
         )
     }
 }

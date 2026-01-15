@@ -4,7 +4,7 @@ set -e
 
 APP_NAME="CmdTrace"
 BUNDLE_ID="com.cmdspace.cmdtrace"
-VERSION="2.2.0"
+VERSION="2.3.0"
 
 # Auto-increment build number
 SCRIPT_DIR="$(dirname "$0")"
@@ -32,6 +32,11 @@ mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 swift build -c release
 
 cp .build/release/CmdTrace "$MACOS_DIR/$APP_NAME"
+
+# Copy entitlements
+if [ -f "CmdTrace.entitlements" ]; then
+    cp CmdTrace.entitlements "$CONTENTS_DIR/"
+fi
 
 # Copy app icon
 if [ -f "Resources/AppIcon.icns" ]; then

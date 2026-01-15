@@ -143,6 +143,76 @@ struct ModelUsage: Codable, Hashable {
     }
 }
 
+struct FileChange: Identifiable, Codable, Hashable {
+    let id: String
+    let filePath: String
+    let changeType: FileChangeType
+    let timestamp: Date?
+    let lineCount: Int?
+    
+    var fileName: String {
+        (filePath as NSString).lastPathComponent
+    }
+    
+    var directory: String {
+        (filePath as NSString).deletingLastPathComponent
+    }
+}
+
+enum FileChangeType: String, Codable {
+    case created = "Created"
+    case modified = "Modified"
+    case read = "Read"
+    case deleted = "Deleted"
+}
+
+struct ErrorEvent: Identifiable, Codable, Hashable {
+    let id: String
+    let message: String
+    let timestamp: Date?
+    let toolName: String?
+    let count: Int
+    
+    var shortMessage: String {
+        let lines = message.components(separatedBy: .newlines)
+        return lines.first ?? message
+    }
+}
+
+struct TimelineEvent: Identifiable {
+    let id: String
+    let timestamp: Date
+    let eventType: TimelineEventType
+    let title: String
+    let detail: String?
+    let category: ToolCategory?
+}
+
+enum TimelineEventType {
+    case toolCall
+    case hookTrigger
+    case error
+    case fileChange
+    
+    var icon: String {
+        switch self {
+        case .toolCall: return "wrench.and.screwdriver"
+        case .hookTrigger: return "link"
+        case .error: return "exclamationmark.triangle"
+        case .fileChange: return "doc"
+        }
+    }
+    
+    var color: String {
+        switch self {
+        case .toolCall: return "blue"
+        case .hookTrigger: return "orange"
+        case .error: return "red"
+        case .fileChange: return "green"
+        }
+    }
+}
+
 struct SessionInsights: Codable {
     let sessionId: String
     let toolCalls: [ToolCall]
@@ -152,6 +222,8 @@ struct SessionInsights: Codable {
     let modelUsage: [ModelUsage]
     let totalDurationMs: Int
     let generatedAt: Date
+    let fileChanges: [FileChange]
+    let errorEvents: [ErrorEvent]
     
     var totalToolCalls: Int {
         toolCalls.count
@@ -185,6 +257,66 @@ struct SessionInsights: Codable {
         }
     }
     
+    var timelineEvents: [TimelineEvent] {
+        var events: [TimelineEvent] = []
+        
+        for call in toolCalls {
+            if let ts = call.timestamp {
+                events.append(TimelineEvent(
+                    id: call.id,
+                    timestamp: ts,
+                    eventType: .toolCall,
+                    title: call.displayName,
+                    detail: nil,
+                    category: call.toolCategory
+                ))
+            }
+        }
+        
+        for hook in hookEvents {
+            events.append(TimelineEvent(
+                id: hook.id,
+                timestamp: hook.timestamp,
+                eventType: .hookTrigger,
+                title: "Hook triggered",
+                detail: "\(hook.hookCount) hooks",
+                category: nil
+            ))
+        }
+        
+        for error in errorEvents where error.timestamp != nil {
+            events.append(TimelineEvent(
+                id: error.id,
+                timestamp: error.timestamp!,
+                eventType: .error,
+                title: error.shortMessage,
+                detail: error.toolName,
+                category: nil
+            ))
+        }
+        
+        for change in fileChanges where change.timestamp != nil {
+            events.append(TimelineEvent(
+                id: change.id,
+                timestamp: change.timestamp!,
+                eventType: .fileChange,
+                title: change.fileName,
+                detail: change.changeType.rawValue,
+                category: nil
+            ))
+        }
+        
+        return events.sorted { $0.timestamp < $1.timestamp }
+    }
+    
+    var uniqueFilesModified: Int {
+        Set(fileChanges.filter { $0.changeType == .modified || $0.changeType == .created }.map { $0.filePath }).count
+    }
+    
+    var errorCount: Int {
+        errorEvents.reduce(0) { $0 + $1.count }
+    }
+    
     static var empty: SessionInsights {
         SessionInsights(
             sessionId: "",
@@ -194,7 +326,9 @@ struct SessionInsights: Codable {
             totalTokenUsage: .zero,
             modelUsage: [],
             totalDurationMs: 0,
-            generatedAt: Date()
+            generatedAt: Date(),
+            fileChanges: [],
+            errorEvents: []
         )
     }
 }

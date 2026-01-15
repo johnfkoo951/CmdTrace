@@ -178,7 +178,7 @@ When executing CLI tools (ccusage, claude-monitor) from the GUI:
 
 ## Version
 
-Current: v2.2.0
+Current: v2.3.0
 
 ### Version Management
 

@@ -93,6 +93,32 @@ Let AI analyze your sessions and generate meaningful titles and summaries. Never
 - Tag suggestions based on content
 - Configurable context window and prompts
 
+
+### 📤 Export Sessions (v2.3.0+)
+
+Export your sessions in multiple formats:
+
+- **Markdown**: Full conversation with headers and formatting
+- **JSON**: Raw data for programmatic access
+- **Plain Text**: Simple text output
+- **HTML**: Styled HTML document
+
+### 🔀 Session Diff (v2.3.0+)
+
+Compare two sessions side-by-side:
+
+- Side-by-side view
+- Unified diff view
+- Statistics comparison (message count, duration, timestamps)
+
+### 📈 Statistics Dashboard (v2.3.0+)
+
+Comprehensive analytics for your sessions:
+
+- 30-day activity chart
+- Project distribution
+- Tag usage breakdown
+- Total messages and session counts
 ---
 
 ## Screenshots
@@ -220,7 +246,23 @@ CmdTrace supports powerful search operators to find sessions quickly.
 | `date:yesterday` | Sessions from yesterday |
 | `date:week` | Sessions from this week |
 | `date:month` | Sessions from this month |
+| `date:2024-01-15` | Sessions from specific date |
+| `date:2024-01-01..2024-01-31` | Sessions in date range |
 
+### Advanced Filters (v2.3.0+)
+
+| Operator | Example | Description |
+|----------|---------|-------------|
+| `regex:` | `regex:\.swift$` | Regular expression search |
+| `messages:` | `messages:>10` | Filter by message count |
+
+**Message count operators:**
+- `messages:>10` - More than 10 messages
+- `messages:<5` - Less than 5 messages
+- `messages:=20` - Exactly 20 messages
+- `messages:10..50` - Between 10 and 50 messages
+
+### Combined Queries
 ### Combined Queries
 
 ```bash
@@ -360,6 +402,7 @@ Built-in real-time monitoring without Terminal:
 | `⌘2` | Dashboard tab |
 | `⌘3` | AI Interaction tab |
 | `⌘,` | Open Settings |
+| `↑↓` | Navigate session list |
 
 ---
 

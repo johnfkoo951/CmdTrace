@@ -111,6 +111,8 @@ struct SessionHeader: View {
     @Binding var copySuccess: Bool
     @Environment(AppState.self) private var appState
     @State private var isGeneratingTitle = false
+    @State private var showExportSheet = false
+    @State private var showDiffSheet = false
     
     var body: some View {
         @Bindable var state = appState
@@ -177,9 +179,14 @@ struct SessionHeader: View {
                     .help("Copy MD")
                     
                     RibbonButton(icon: "square.and.arrow.down", isActive: false) {
-                        downloadAsMarkdown()
+                        showExportSheet = true
                     }
-                    .help("Download")
+                    .help("Export")
+                    
+                    RibbonButton(icon: "arrow.left.arrow.right", isActive: false) {
+                        showDiffSheet = true
+                    }
+                    .help("Compare")
                     
                     if appState.selectedCLI == .claude || appState.selectedCLI == .opencode || appState.selectedCLI == .antigravity {
                         Menu {
@@ -225,6 +232,12 @@ struct SessionHeader: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .background(.bar)
+        .sheet(isPresented: $showExportSheet) {
+            ExportView(session: session, messages: messages)
+        }
+        .sheet(isPresented: $showDiffSheet) {
+            SessionDiffView(baseSession: session)
+        }
     }
     
     private func copyAllAsMarkdown() {
@@ -691,6 +704,7 @@ struct InspectorPanel: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                // MARK: - 1. Session Info
                 SectionHeader("Session Info")
                 VStack(alignment: .leading, spacing: 6) {
                     InfoRow(label: "ID", value: session.id, font: smallFont, truncate: true)
@@ -721,48 +735,11 @@ struct InspectorPanel: View {
                         }
                     }
                     InfoRow(label: "Last Active", value: session.relativeTime, font: labelFont)
-                    
-                    Divider().padding(.vertical, 2)
-                    
-                    HStack {
-                        Text("Path")
-                            .font(labelFont)
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Button {
-                            NSPasteboard.general.clearContents()
-                            NSPasteboard.general.setString(session.project, forType: .string)
-                        } label: {
-                            Image(systemName: "doc.on.doc")
-                                .font(.system(size: 10))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    Text(session.project)
-                        .font(smallFont)
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(2)
-                }
-                
-                // MARK: - Session Insights (Claude Code only)
-                if appState.selectedCLI == .claude {
-                    Divider()
-                    
-                    SessionInsightsSection(
-                        session: session,
-                        insights: sessionInsights,
-                        isLoading: isLoadingInsights
-                    )
-                    
-                    if let usage = sessionConfigUsage, !usage.isEmpty {
-                        Divider()
-                        
-                        SessionConfigUsageSection(usage: usage)
-                    }
                 }
                 
                 Divider()
                 
+                // MARK: - 2. Summary
                 SectionHeader("컨텍스트 요약")
                 VStack(alignment: .leading, spacing: 6) {
                     if let summary = appState.getSummary(for: session.id) {
@@ -837,7 +814,6 @@ struct InspectorPanel: View {
                             .foregroundStyle(.secondary)
                     }
 
-                    // Provider selector + Generate button on same line
                     HStack {
                         Picker("", selection: Binding(
                             get: { appState.settings.summaryProvider },
@@ -871,7 +847,6 @@ struct InspectorPanel: View {
                             .foregroundStyle(.orange)
                     }
 
-                    // Error display
                     if let error = summaryError {
                         HStack(alignment: .top, spacing: 4) {
                             Image(systemName: "xmark.circle.fill")
@@ -889,6 +864,7 @@ struct InspectorPanel: View {
                 
                 Divider()
                 
+                // MARK: - 3. Tags
                 SectionHeader("Tags")
                 VStack(alignment: .leading, spacing: 6) {
                     let tags = appState.getTags(for: session.id)
@@ -898,7 +874,6 @@ struct InspectorPanel: View {
                                 let tagInfo = appState.tagDatabase[tag]
                                 let tagColor = tagInfo?.swiftUIColor ?? .blue
                                 HStack(spacing: 3) {
-                                    // Clickable tag name - filters sessions
                                     Button {
                                         appState.selectedTag = tag
                                         appState.sidebarViewMode = .list
@@ -911,7 +886,6 @@ struct InspectorPanel: View {
                                     .buttonStyle(.plain)
                                     .help("Filter by this tag")
 
-                                    // Remove button
                                     Button {
                                         appState.removeTag(tag, from: session.id)
                                     } label: {
@@ -936,7 +910,6 @@ struct InspectorPanel: View {
                             .font(smallFont)
                             .onSubmit { addTag() }
                             .onChange(of: newTag) { oldValue, newValue in
-                                // Remove spaces in real-time as user types
                                 let sanitized = newValue.replacingOccurrences(of: " ", with: "")
                                 if sanitized != newValue {
                                     newTag = sanitized
@@ -953,6 +926,7 @@ struct InspectorPanel: View {
                 
                 Divider()
                 
+                // MARK: - 4. Quick Actions
                 SectionHeader("Quick Actions")
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
                     QuickActionButton(
@@ -992,6 +966,7 @@ struct InspectorPanel: View {
                     }
                 }
                 
+                // MARK: - 5. Resume Session (Claude only)
                 if appState.selectedCLI == .claude {
                     Divider()
                     
@@ -1020,6 +995,7 @@ struct InspectorPanel: View {
                 
                 Divider()
                 
+                // MARK: - 6. Open in Finder
                 Button {
                     NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: session.project)
                 } label: {
@@ -1029,6 +1005,65 @@ struct InspectorPanel: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
+                
+                // MARK: - 7. Additional Info (Session Insights, Config Usage)
+                if appState.selectedCLI == .claude {
+                    Divider()
+                    
+                    SectionHeader("Path")
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text(session.project)
+                                .font(smallFont)
+                                .foregroundStyle(.tertiary)
+                                .lineLimit(2)
+                            Spacer()
+                            Button {
+                                NSPasteboard.general.clearContents()
+                                NSPasteboard.general.setString(session.project, forType: .string)
+                            } label: {
+                                Image(systemName: "doc.on.doc")
+                                    .font(.system(size: 10))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    
+                    Divider()
+                    
+                    SessionInsightsSection(
+                        session: session,
+                        insights: sessionInsights,
+                        isLoading: isLoadingInsights
+                    )
+                    
+                    if let usage = sessionConfigUsage, !usage.isEmpty {
+                        Divider()
+                        
+                        SessionConfigUsageSection(usage: usage)
+                    }
+                } else {
+                    Divider()
+                    
+                    SectionHeader("Path")
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text(session.project)
+                                .font(smallFont)
+                                .foregroundStyle(.tertiary)
+                                .lineLimit(2)
+                            Spacer()
+                            Button {
+                                NSPasteboard.general.clearContents()
+                                NSPasteboard.general.setString(session.project, forType: .string)
+                            } label: {
+                                Image(systemName: "doc.on.doc")
+                                    .font(.system(size: 10))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
             }
             .padding(12)
         }
@@ -1762,6 +1797,7 @@ struct DashboardView: View {
     @Environment(AppState.self) private var appState
     @State private var usageData: UsageData?
     @State private var isLoadingUsage = false
+    @State private var showStatisticsSheet = false
     
     private var totalMessages: Int {
         appState.sessions.reduce(0) { $0 + $1.messageCount }
@@ -1874,8 +1910,36 @@ struct DashboardView: View {
                     UsageSection(usageData: $usageData, isLoading: $isLoadingUsage)
                     UsageToolsSection()
                 }
+                
+                Button {
+                    showStatisticsSheet = true
+                } label: {
+                    HStack {
+                        Image(systemName: "chart.bar.doc.horizontal")
+                        Text("View Full Statistics")
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(.regularMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+                .buttonStyle(.plain)
             }
             .padding()
+        }
+        .sheet(isPresented: $showStatisticsSheet) {
+            NavigationStack {
+                StatisticsView()
+                    .navigationTitle("Statistics")
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") {
+                                showStatisticsSheet = false
+                            }
+                        }
+                    }
+            }
+            .frame(minWidth: 700, minHeight: 500)
         }
         .task {
             if appState.selectedCLI == .claude {
@@ -3202,43 +3266,66 @@ struct MarkdownText: View {
                     }
                 case .table(let rows, let headers):
                     ScrollView(.horizontal, showsIndicators: false) {
-                        VStack(alignment: .leading, spacing: 0) {
-                            // Header row
+                        Grid(alignment: .leading, horizontalSpacing: 0, verticalSpacing: 0) {
                             if !headers.isEmpty {
-                                HStack(spacing: 0) {
-                                    ForEach(Array(headers.enumerated()), id: \.offset) { _, header in
+                                GridRow {
+                                    ForEach(Array(headers.enumerated()), id: \.offset) { colIndex, header in
                                         Text(header)
-                                            .font(.caption.bold())
+                                            .font(.system(size: 12, weight: .semibold))
+                                            .foregroundStyle(.primary)
                                             .padding(.horizontal, 12)
                                             .padding(.vertical, 8)
-                                            .frame(minWidth: 80, alignment: .leading)
-                                            .background(Color(nsColor: .controlBackgroundColor))
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                            .background(Color(nsColor: .windowBackgroundColor))
+                                            .overlay(alignment: .trailing) {
+                                                if colIndex < headers.count - 1 {
+                                                    Rectangle()
+                                                        .fill(Color(nsColor: .separatorColor).opacity(0.5))
+                                                        .frame(width: 1)
+                                                }
+                                            }
                                     }
                                 }
-                                Divider()
+                                
+                                GridRow {
+                                    ForEach(0..<max(headers.count, 1), id: \.self) { _ in
+                                        Rectangle()
+                                            .fill(Color.accentColor.opacity(0.6))
+                                            .frame(height: 2)
+                                    }
+                                }
                             }
 
-                            // Data rows
                             ForEach(Array(rows.enumerated()), id: \.offset) { rowIndex, row in
-                                HStack(spacing: 0) {
-                                    ForEach(Array(row.enumerated()), id: \.offset) { _, cell in
+                                GridRow {
+                                    ForEach(Array(row.enumerated()), id: \.offset) { colIndex, cell in
                                         Text(cell)
-                                            .font(.caption)
+                                            .font(.system(size: 12))
+                                            .foregroundStyle(.primary.opacity(0.9))
                                             .padding(.horizontal, 12)
                                             .padding(.vertical, 6)
-                                            .frame(minWidth: 80, alignment: .leading)
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                            .background(rowIndex % 2 == 0 ? Color.clear : Color(nsColor: .controlBackgroundColor).opacity(0.4))
+                                            .overlay(alignment: .trailing) {
+                                                if colIndex < row.count - 1 {
+                                                    Rectangle()
+                                                        .fill(Color(nsColor: .separatorColor).opacity(0.3))
+                                                        .frame(width: 1)
+                                                }
+                                            }
                                     }
                                 }
-                                .background(rowIndex % 2 == 0 ? Color.clear : Color(nsColor: .controlBackgroundColor).opacity(0.3))
                             }
                         }
+                        .fixedSize(horizontal: true, vertical: false)
                     }
-                    .background(Color(nsColor: .textBackgroundColor).opacity(0.3))
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .background(Color(nsColor: .textBackgroundColor).opacity(0.5))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 6)
-                            .stroke(Color(nsColor: .separatorColor), lineWidth: 0.5)
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color(nsColor: .separatorColor).opacity(0.8), lineWidth: 1)
                     )
+                    .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
                 }
             }
         }
@@ -4274,6 +4361,21 @@ struct SessionInsightsSection: View {
                     if !insights.modelUsage.isEmpty {
                         Divider().padding(.vertical, 4)
                         ModelUsageView(models: insights.modelUsage)
+                    }
+                    
+                    if !insights.fileChanges.isEmpty {
+                        Divider().padding(.vertical, 4)
+                        FileChangesView(changes: insights.fileChanges)
+                    }
+                    
+                    if !insights.errorEvents.isEmpty {
+                        Divider().padding(.vertical, 4)
+                        ErrorEventsView(errors: insights.errorEvents)
+                    }
+                    
+                    if !insights.timelineEvents.isEmpty {
+                        Divider().padding(.vertical, 4)
+                        TimelinePreviewView(events: insights.timelineEvents)
                     }
                 }
             } else {

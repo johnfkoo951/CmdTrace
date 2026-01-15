@@ -823,6 +823,10 @@ struct SessionListView: View {
         }.map { ($0.key, $0.value) }
     }
     
+    private var flatSessions: [Session] {
+        groupedSessions.flatMap { $0.sessions }
+    }
+    
     var body: some View {
         @Bindable var state = appState
         
@@ -842,6 +846,43 @@ struct SessionListView: View {
             }
         }
         .listStyle(.sidebar)
+        .onKeyPress(.upArrow) {
+            selectPreviousSession()
+            return .handled
+        }
+        .onKeyPress(.downArrow) {
+            selectNextSession()
+            return .handled
+        }
+        .onKeyPress(.return) {
+            return .handled
+        }
+    }
+    
+    private func selectNextSession() {
+        let sessions = flatSessions
+        guard !sessions.isEmpty else { return }
+        
+        if let current = appState.selectedSession,
+           let index = sessions.firstIndex(of: current),
+           index < sessions.count - 1 {
+            appState.selectedSession = sessions[index + 1]
+        } else if appState.selectedSession == nil {
+            appState.selectedSession = sessions.first
+        }
+    }
+    
+    private func selectPreviousSession() {
+        let sessions = flatSessions
+        guard !sessions.isEmpty else { return }
+        
+        if let current = appState.selectedSession,
+           let index = sessions.firstIndex(of: current),
+           index > 0 {
+            appState.selectedSession = sessions[index - 1]
+        } else if appState.selectedSession == nil {
+            appState.selectedSession = sessions.last
+        }
     }
 }
 

@@ -58,6 +58,10 @@ struct SettingsView: View {
                     }
                 }
                 
+                Section("iCloud Sync") {
+                    CloudSyncSettingsView()
+                }
+                
                 Section("Obsidian Integration") {
                     LabeledContent("Vault Path") {
                         HStack {
@@ -703,6 +707,73 @@ struct CLIIconPicker: View {
         newIcons[cli.rawValue] = icon
         appState.settings.cliIcons = newIcons
         appState.saveUserData()
+    }
+}
+
+struct CloudSyncSettingsView: View {
+    @Environment(AppState.self) private var appState
+    
+    var body: some View {
+        @Bindable var state = appState
+        
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "icloud")
+                    .font(.title2)
+                    .foregroundStyle(.secondary)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("iCloud Sync")
+                        .font(.headline)
+                    
+                    Text("Requires Apple Developer setup")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+                
+                Spacer()
+                
+                Text("Coming Soon")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(.quaternary)
+                    .clipShape(Capsule())
+            }
+            
+            Text("CloudKit container must be configured in Apple Developer Console before enabling sync.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        }
+    }
+}
+
+struct SyncStatusView: View {
+    let status: CloudSyncService.SyncStatus
+    
+    var body: some View {
+        HStack(spacing: 4) {
+            switch status {
+            case .idle:
+                EmptyView()
+            case .syncing:
+                ProgressView()
+                    .scaleEffect(0.6)
+                Text("Syncing...")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            case .success:
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .font(.caption)
+            case .error(let message):
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                    .font(.caption)
+                    .help(message)
+            }
+        }
     }
 }
 
