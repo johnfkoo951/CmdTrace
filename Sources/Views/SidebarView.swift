@@ -38,6 +38,14 @@ struct SidebarView: View {
                         }
                         
                         SidebarToggleButton(
+                            title: "Projects",
+                            icon: "folder",
+                            isSelected: appState.selectedTab == .projects
+                        ) {
+                            appState.selectedTab = .projects
+                        }
+                        
+                        SidebarToggleButton(
                             title: "Stats",
                             icon: "chart.bar",
                             isSelected: appState.selectedTab == .dashboard
