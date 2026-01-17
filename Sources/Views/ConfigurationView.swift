@@ -83,14 +83,21 @@ struct ConfigurationView: View {
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .frame(maxWidth: 200)
             
-            Picker("Scope", selection: $selectedScope) {
-                Text("All").tag(nil as ClaudeConfigScope?)
-                ForEach(ClaudeConfigScope.allCases, id: \.self) { scope in
-                    Text(scope.rawValue).tag(scope as ClaudeConfigScope?)
+            HStack(spacing: 8) {
+                Text("Scope")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                
+                Picker("", selection: $selectedScope) {
+                    Text("All").tag(nil as ClaudeConfigScope?)
+                    ForEach(ClaudeConfigScope.allCases, id: \.self) { scope in
+                        Text(scope.rawValue).tag(scope as ClaudeConfigScope?)
+                    }
                 }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .frame(width: 180)
             }
-            .pickerStyle(.segmented)
-            .frame(width: 200)
             
             Spacer()
             
