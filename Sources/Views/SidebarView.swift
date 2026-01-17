@@ -27,46 +27,57 @@ struct SidebarView: View {
                             appState.sidebarViewMode = .tags
                         }
                     }
+                    .padding(2)
+                    .background(Color(nsColor: .controlBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.primary.opacity(0.1), lineWidth: 1)
+                    )
                     
-                    HStack(spacing: 0) {
-                        SidebarToggleButton(
-                            title: "Sessions",
-                            icon: "bubble.left.and.bubble.right",
-                            isSelected: appState.selectedTab == .sessions
-                        ) {
-                            appState.selectedTab = .sessions
+                    VStack(spacing: 8) {
+                        HStack(spacing: 8) {
+                            SidebarToggleButton(
+                                title: "Sessions",
+                                icon: "bubble.left.and.bubble.right",
+                                isSelected: appState.selectedTab == .sessions
+                            ) {
+                                appState.selectedTab = .sessions
+                            }
+                            
+                            SidebarToggleButton(
+                                title: "Projects",
+                                icon: "folder",
+                                isSelected: appState.selectedTab == .projects
+                            ) {
+                                appState.selectedTab = .projects
+                            }
+                            
+                            SidebarToggleButton(
+                                title: "AI",
+                                icon: "sparkles",
+                                isSelected: appState.selectedTab == .interaction
+                            ) {
+                                appState.selectedTab = .interaction
+                            }
                         }
                         
-                        SidebarToggleButton(
-                            title: "Projects",
-                            icon: "folder",
-                            isSelected: appState.selectedTab == .projects
-                        ) {
-                            appState.selectedTab = .projects
-                        }
-                        
-                        SidebarToggleButton(
-                            title: "Stats",
-                            icon: "chart.bar",
-                            isSelected: appState.selectedTab == .dashboard
-                        ) {
-                            appState.selectedTab = .dashboard
-                        }
-                        
-                        SidebarToggleButton(
-                            title: "Config",
-                            icon: "gearshape.2",
-                            isSelected: appState.selectedTab == .configuration
-                        ) {
-                            appState.selectedTab = .configuration
-                        }
-                        
-                        SidebarToggleButton(
-                            title: "AI",
-                            icon: "sparkles",
-                            isSelected: appState.selectedTab == .interaction
-                        ) {
-                            appState.selectedTab = .interaction
+                        HStack(spacing: 8) {
+                            SidebarToggleButton(
+                                title: "Stats",
+                                icon: "chart.bar",
+                                isSelected: appState.selectedTab == .dashboard
+                            ) {
+                                appState.selectedTab = .dashboard
+                            }
+                            
+                            SidebarToggleButton(
+                                title: "Config",
+                                icon: "gearshape.2",
+                                isSelected: appState.selectedTab == .configuration
+                            ) {
+                                appState.selectedTab = .configuration
+                            }
                         }
                     }
                 }
@@ -186,27 +197,29 @@ struct SidebarToggleButton: View {
     let icon: String
     let isSelected: Bool
     let action: () -> Void
+    @State private var isHovered = false
     
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 2) {
-                HStack(spacing: 4) {
-                    Image(systemName: icon)
-                        .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
-                    Text(title)
-                        .font(.system(size: 11, weight: isSelected ? .semibold : .medium))
-                }
-                .foregroundStyle(isSelected ? Color.accentColor : .secondary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 6)
-                
-                RoundedRectangle(cornerRadius: 1)
-                    .fill(isSelected ? Color.accentColor : .clear)
-                    .frame(height: 2)
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 11, weight: isSelected ? .semibold : .medium))
+                Text(title)
+                    .font(.system(size: 11, weight: isSelected ? .semibold : .medium))
             }
+            .foregroundStyle(isSelected ? .white : .primary)
+            .frame(maxWidth: .infinity)
+            .frame(height: 28)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(isSelected ? Color.accentColor : (isHovered ? Color.primary.opacity(0.05) : Color.clear))
+            )
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
         .animation(.easeInOut(duration: 0.15), value: isSelected)
+        .animation(.easeInOut(duration: 0.15), value: isHovered)
     }
 }
 
