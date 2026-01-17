@@ -284,3 +284,7 @@ git push origin vX.X.X-buildN
 # 6. GitHub 릴리즈 생성
 gh release create vX.X.X-buildN ./build/*.dmg --title "CmdTrace vX.X.X" --prerelease
 ```
+
+
+
+

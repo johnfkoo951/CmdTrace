@@ -1,6 +1,38 @@
 import SwiftUI
 import Charts
 
+// MARK: - Model Display Utilities
+
+/// Shared utilities for displaying Claude model names and colors
+/// Used by DailyUsageRow, MonthlyUsageRow, BlockUsageRow, ModelBreakdownRow, NativeMonitorView
+enum ModelDisplayUtils {
+    /// Returns a short, human-readable model name
+    static func shortName(_ model: String) -> String {
+        if model.contains("opus") { return "Opus" }
+        if model.contains("sonnet") { return "Sonnet" }
+        if model.contains("haiku") { return "Haiku" }
+        return String(model.prefix(6))
+    }
+    
+    /// Returns the color associated with a model
+    static func color(_ model: String) -> Color {
+        if model.contains("opus") { return .purple }
+        if model.contains("sonnet") { return .blue }
+        if model.contains("haiku") { return .green }
+        return .gray
+    }
+    
+    /// Formats a token count with K/M suffix
+    static func formatTokens(_ n: Int) -> String {
+        if n >= 1_000_000 {
+            return String(format: "%.1fM", Double(n) / 1_000_000)
+        } else if n >= 1000 {
+            return String(format: "%.1fK", Double(n) / 1000)
+        }
+        return "\(n)"
+    }
+}
+
 struct DetailView: View {
     @Environment(AppState.self) private var appState
     
@@ -1859,49 +1891,11 @@ struct DashboardView: View {
     @State private var isLoadingUsage = false
     @State private var showStatisticsSheet = false
     
-    private var totalMessages: Int {
-        appState.sessions.reduce(0) { $0 + $1.messageCount }
-    }
-    
-    private var uniqueProjects: Int {
-        Set(appState.sessions.map { $0.project }).count
-    }
-    
-    private var todaySessions: Int {
-        let calendar = Calendar.current
-        return appState.sessions.filter { calendar.isDateInToday($0.lastActivity) }.count
-    }
-    
-    private var projectStats: [(project: String, sessions: Int, messages: Int)] {
-        let grouped = Dictionary(grouping: appState.sessions) { $0.projectName }
-        return grouped.map { (project: $0.key, sessions: $0.value.count, messages: $0.value.reduce(0) { $0 + $1.messageCount }) }
-            .sorted { $0.sessions > $1.sessions }
-            .prefix(10)
-            .map { $0 }
-    }
-    
-    private var recentActivity: [(date: String, count: Int)] {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MM/dd"
-        let calendar = Calendar.current
-        
-        var activity: [String: Int] = [:]
-        for i in 0..<14 {
-            let date = calendar.date(byAdding: .day, value: -i, to: Date())!
-            activity[formatter.string(from: date)] = 0
-        }
-        
-        for session in appState.sessions {
-            let key = formatter.string(from: session.lastActivity)
-            if activity[key] != nil {
-                activity[key]! += 1
-            }
-        }
-        
-        return activity.sorted { 
-            formatter.date(from: $0.key)! > formatter.date(from: $1.key)!
-        }.reversed().map { ($0.key, $0.value) }
-    }
+    @State private var cachedTotalMessages: Int = 0
+    @State private var cachedUniqueProjects: Int = 0
+    @State private var cachedTodaySessions: Int = 0
+    @State private var cachedProjectStats: [(project: String, sessions: Int, messages: Int)] = []
+    @State private var cachedRecentActivity: [(date: String, count: Int)] = []
     
     var body: some View {
         ScrollView {
@@ -1913,9 +1907,9 @@ struct DashboardView: View {
                     GridItem(.flexible())
                 ], spacing: 16) {
                     StatCard(title: "Sessions", value: "\(appState.sessions.count)", icon: "bubble.left.and.bubble.right", color: .blue)
-                    StatCard(title: "Messages", value: formatNumber(totalMessages), icon: "text.bubble", color: .purple)
-                    StatCard(title: "Projects", value: "\(uniqueProjects)", icon: "folder", color: .orange)
-                    StatCard(title: "Today", value: "\(todaySessions)", icon: "sun.max", color: .yellow)
+                    StatCard(title: "Messages", value: formatNumber(cachedTotalMessages), icon: "text.bubble", color: .purple)
+                    StatCard(title: "Projects", value: "\(cachedUniqueProjects)", icon: "folder", color: .orange)
+                    StatCard(title: "Today", value: "\(cachedTodaySessions)", icon: "sun.max", color: .yellow)
                 }
                 
                 HStack(alignment: .top, spacing: 24) {
@@ -1924,7 +1918,7 @@ struct DashboardView: View {
                             .font(.headline)
                         
                         HStack(alignment: .bottom, spacing: 4) {
-                            ForEach(recentActivity, id: \.date) { item in
+                            ForEach(cachedRecentActivity, id: \.date) { item in
                                 VStack(spacing: 4) {
                                     RoundedRectangle(cornerRadius: 4)
                                         .fill(.blue.opacity(0.8))
@@ -1947,7 +1941,7 @@ struct DashboardView: View {
                             .font(.headline)
                         
                         VStack(spacing: 8) {
-                            ForEach(projectStats.prefix(8), id: \.project) { stat in
+                            ForEach(cachedProjectStats.prefix(8), id: \.project) { stat in
                                 HStack {
                                     Text(stat.project)
                                         .font(.subheadline)
@@ -2002,10 +1996,46 @@ struct DashboardView: View {
             .frame(minWidth: 700, minHeight: 500)
         }
         .task {
+            recalculateStats()
             if appState.selectedCLI == .claude {
                 await loadUsageData()
             }
         }
+        .onChange(of: appState.sessions.count) { _, _ in
+            recalculateStats()
+        }
+    }
+    
+    private func recalculateStats() {
+        let sessions = appState.sessions
+        cachedTotalMessages = sessions.reduce(0) { $0 + $1.messageCount }
+        cachedUniqueProjects = Set(sessions.map { $0.project }).count
+        
+        let calendar = Calendar.current
+        cachedTodaySessions = sessions.filter { calendar.isDateInToday($0.lastActivity) }.count
+        
+        let grouped = Dictionary(grouping: sessions) { $0.projectName }
+        cachedProjectStats = grouped.map { (project: $0.key, sessions: $0.value.count, messages: $0.value.reduce(0) { $0 + $1.messageCount }) }
+            .sorted { $0.sessions > $1.sessions }
+            .prefix(10)
+            .map { $0 }
+        
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MM/dd"
+        var activity: [String: Int] = [:]
+        for i in 0..<14 {
+            let date = calendar.date(byAdding: .day, value: -i, to: Date())!
+            activity[formatter.string(from: date)] = 0
+        }
+        for session in sessions {
+            let key = formatter.string(from: session.lastActivity)
+            if activity[key] != nil {
+                activity[key]! += 1
+            }
+        }
+        cachedRecentActivity = activity.sorted {
+            formatter.date(from: $0.key)! > formatter.date(from: $1.key)!
+        }.reversed().map { ($0.key, $0.value) }
     }
     
     private func loadUsageData() async {
@@ -2075,23 +2105,9 @@ struct DashboardView: View {
 struct DashboardInspectorPanel: View {
     @Environment(AppState.self) private var appState
     
-    private var tagStats: [(tag: String, count: Int)] {
-        var counts: [String: Int] = [:]
-        for (_, meta) in appState.sessionMetadata {
-            for tag in meta.tags {
-                counts[tag, default: 0] += 1
-            }
-        }
-        return counts.sorted { $0.value > $1.value }.map { ($0.key, $0.value) }
-    }
-    
-    private var favoriteCount: Int {
-        appState.sessionMetadata.values.filter { $0.isFavorite }.count
-    }
-    
-    private var pinnedCount: Int {
-        appState.sessionMetadata.values.filter { $0.isPinned }.count
-    }
+    @State private var cachedTagStats: [(tag: String, count: Int)] = []
+    @State private var cachedFavoriteCount: Int = 0
+    @State private var cachedPinnedCount: Int = 0
     
     var body: some View {
         ScrollView {
@@ -2100,20 +2116,20 @@ struct DashboardInspectorPanel: View {
                     VStack(alignment: .leading, spacing: 8) {
                         LabeledContent("CLI", value: appState.selectedCLI.rawValue)
                         LabeledContent("Total Sessions", value: "\(appState.sessions.count)")
-                        LabeledContent("Favorites", value: "\(favoriteCount)")
-                        LabeledContent("Pinned", value: "\(pinnedCount)")
+                        LabeledContent("Favorites", value: "\(cachedFavoriteCount)")
+                        LabeledContent("Pinned", value: "\(cachedPinnedCount)")
                     }
                     .font(.caption)
                 }
                 
                 GroupBox("Tag Distribution") {
                     VStack(alignment: .leading, spacing: 8) {
-                        if tagStats.isEmpty {
+                        if cachedTagStats.isEmpty {
                             Text("No tags yet")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         } else {
-                            ForEach(tagStats.prefix(10), id: \.tag) { stat in
+                            ForEach(cachedTagStats.prefix(10), id: \.tag) { stat in
                                 HStack {
                                     if let tagInfo = appState.tagDatabase[stat.tag] {
                                         Circle()
@@ -2145,6 +2161,20 @@ struct DashboardInspectorPanel: View {
             }
             .padding()
         }
+        .task { recalculateStats() }
+        .onChange(of: appState.sessionMetadata.count) { _, _ in recalculateStats() }
+    }
+    
+    private func recalculateStats() {
+        var counts: [String: Int] = [:]
+        for (_, meta) in appState.sessionMetadata {
+            for tag in meta.tags {
+                counts[tag, default: 0] += 1
+            }
+        }
+        cachedTagStats = counts.sorted { $0.value > $1.value }.map { ($0.key, $0.value) }
+        cachedFavoriteCount = appState.sessionMetadata.values.filter { $0.isFavorite }.count
+        cachedPinnedCount = appState.sessionMetadata.values.filter { $0.isPinned }.count
     }
 }
 
@@ -2225,8 +2255,8 @@ struct UsageSection: View {
                 // Summary Cards
                 HStack(spacing: 12) {
                     UsageStatCard(title: "총 비용", value: String(format: "$%.2f", data.totalCost), icon: "dollarsign.circle", color: .green)
-                    UsageStatCard(title: "총 토큰", value: formatTokens(data.totalTokens), icon: "number.circle", color: .blue)
-                    UsageStatCard(title: "캐시 히트", value: formatTokens(data.cacheReadTokens), icon: "bolt.circle", color: .orange)
+                    UsageStatCard(title: "총 토큰", value: ModelDisplayUtils.formatTokens(data.totalTokens), icon: "number.circle", color: .blue)
+                    UsageStatCard(title: "캐시 히트", value: ModelDisplayUtils.formatTokens(data.cacheReadTokens), icon: "bolt.circle", color: .orange)
                 }
 
                 // View Mode Picker
@@ -2291,15 +2321,6 @@ struct UsageSection: View {
                 .clipShape(RoundedRectangle(cornerRadius: 8))
             }
         }
-    }
-
-    private func formatTokens(_ n: Int) -> String {
-        if n >= 1_000_000 {
-            return String(format: "%.1fM", Double(n) / 1_000_000.0)
-        } else if n >= 1000 {
-            return String(format: "%.1fK", Double(n) / 1000.0)
-        }
-        return "\(n)"
     }
 
     private func launchClaudeMonitor(plan: ClaudePlan, view: String? = nil) {
@@ -2418,12 +2439,12 @@ struct DailyUsageRow: View {
                 // Models
                 HStack(spacing: 4) {
                     ForEach(day.modelsUsed, id: \.self) { model in
-                        Text(shortModelName(model))
+                        Text(ModelDisplayUtils.shortName(model))
                             .font(.system(size: 9))
                             .padding(.horizontal, 4)
                             .padding(.vertical, 2)
-                            .background(modelColor(model).opacity(0.2))
-                            .foregroundStyle(modelColor(model))
+                            .background(ModelDisplayUtils.color(model).opacity(0.2))
+                            .foregroundStyle(ModelDisplayUtils.color(model))
                             .clipShape(Capsule())
                     }
                 }
@@ -2456,19 +2477,6 @@ struct DailyUsageRow: View {
         return dateString
     }
 
-    private func shortModelName(_ model: String) -> String {
-        if model.contains("opus") { return "Opus" }
-        if model.contains("sonnet") { return "Sonnet" }
-        if model.contains("haiku") { return "Haiku" }
-        return String(model.prefix(6))
-    }
-
-    private func modelColor(_ model: String) -> Color {
-        if model.contains("opus") { return .purple }
-        if model.contains("sonnet") { return .blue }
-        if model.contains("haiku") { return .green }
-        return .gray
-    }
 }
 
 // MARK: - Monthly Usage Row
@@ -2519,12 +2527,12 @@ struct MonthlyUsageRow: View {
                 // Models
                 HStack(spacing: 4) {
                     ForEach(month.modelsUsed.prefix(3), id: \.self) { model in
-                        Text(shortModelName(model))
+                        Text(ModelDisplayUtils.shortName(model))
                             .font(.system(size: 9))
                             .padding(.horizontal, 4)
                             .padding(.vertical, 2)
-                            .background(modelColor(model).opacity(0.2))
-                            .foregroundStyle(modelColor(model))
+                            .background(ModelDisplayUtils.color(model).opacity(0.2))
+                            .foregroundStyle(ModelDisplayUtils.color(model))
                             .clipShape(Capsule())
                     }
                 }
@@ -2557,20 +2565,6 @@ struct MonthlyUsageRow: View {
             return "\(year)/\(components[1])"
         }
         return monthString
-    }
-
-    private func shortModelName(_ model: String) -> String {
-        if model.contains("opus") { return "Opus" }
-        if model.contains("sonnet") { return "Sonnet" }
-        if model.contains("haiku") { return "Haiku" }
-        return String(model.prefix(6))
-    }
-
-    private func modelColor(_ model: String) -> Color {
-        if model.contains("opus") { return .purple }
-        if model.contains("sonnet") { return .blue }
-        if model.contains("haiku") { return .green }
-        return .gray
     }
 }
 
@@ -2618,12 +2612,12 @@ struct BlockUsageRow: View {
             // Models
             HStack(spacing: 4) {
                 ForEach(block.models.prefix(2), id: \.self) { model in
-                    Text(shortModelName(model))
+                    Text(ModelDisplayUtils.shortName(model))
                         .font(.system(size: 9))
                         .padding(.horizontal, 4)
                         .padding(.vertical, 2)
-                        .background(modelColor(model).opacity(0.2))
-                        .foregroundStyle(modelColor(model))
+                        .background(ModelDisplayUtils.color(model).opacity(0.2))
+                        .foregroundStyle(ModelDisplayUtils.color(model))
                         .clipShape(Capsule())
                 }
             }
@@ -2644,20 +2638,6 @@ struct BlockUsageRow: View {
         }
         return timeString
     }
-
-    private func shortModelName(_ model: String) -> String {
-        if model.contains("opus") { return "Opus" }
-        if model.contains("sonnet") { return "Sonnet" }
-        if model.contains("haiku") { return "Haiku" }
-        return String(model.prefix(6))
-    }
-
-    private func modelColor(_ model: String) -> Color {
-        if model.contains("opus") { return .purple }
-        if model.contains("sonnet") { return .blue }
-        if model.contains("haiku") { return .green }
-        return .gray
-    }
 }
 
 // MARK: - Model Breakdown Row
@@ -2667,18 +2647,18 @@ struct ModelBreakdownRow: View {
     var body: some View {
         HStack(spacing: 8) {
             Circle()
-                .fill(modelColor(breakdown.modelName))
+                .fill(ModelDisplayUtils.color(breakdown.modelName))
                 .frame(width: 6, height: 6)
 
-            Text(shortModelName(breakdown.modelName))
+            Text(ModelDisplayUtils.shortName(breakdown.modelName))
                 .font(.system(size: 10, weight: .medium))
                 .frame(width: 50, alignment: .leading)
 
-            Text("In: \(formatTokens(breakdown.inputTokens))")
+            Text("In: \(ModelDisplayUtils.formatTokens(breakdown.inputTokens))")
                 .font(.system(size: 9, design: .monospaced))
                 .foregroundStyle(.secondary)
 
-            Text("Out: \(formatTokens(breakdown.outputTokens))")
+            Text("Out: \(ModelDisplayUtils.formatTokens(breakdown.outputTokens))")
                 .font(.system(size: 9, design: .monospaced))
                 .foregroundStyle(.secondary)
 
@@ -2686,33 +2666,10 @@ struct ModelBreakdownRow: View {
 
             Text(String(format: "$%.2f", breakdown.cost))
                 .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .foregroundStyle(modelColor(breakdown.modelName))
+                .foregroundStyle(ModelDisplayUtils.color(breakdown.modelName))
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
-    }
-
-    private func formatTokens(_ n: Int) -> String {
-        if n >= 1_000_000 {
-            return String(format: "%.1fM", Double(n) / 1_000_000.0)
-        } else if n >= 1000 {
-            return String(format: "%.1fK", Double(n) / 1000.0)
-        }
-        return "\(n)"
-    }
-
-    private func shortModelName(_ model: String) -> String {
-        if model.contains("opus") { return "Opus" }
-        if model.contains("sonnet") { return "Sonnet" }
-        if model.contains("haiku") { return "Haiku" }
-        return String(model.prefix(8))
-    }
-
-    private func modelColor(_ model: String) -> Color {
-        if model.contains("opus") { return .purple }
-        if model.contains("sonnet") { return .blue }
-        if model.contains("haiku") { return .green }
-        return .gray
     }
 }
 
@@ -3670,7 +3627,7 @@ struct NativeMonitorView: View {
                                 icon: "number.circle",
                                 current: Double(data.currentTokens),
                                 limit: Double(data.tokenLimit),
-                                formatValue: { formatTokensShort(Int($0)) },
+                                formatValue: { ModelDisplayUtils.formatTokens(Int($0)) },
                                 barColor: tokenBarColor,
                                 warningThreshold: 0.8
                             )
@@ -3699,7 +3656,7 @@ struct NativeMonitorView: View {
                                     ForEach(data.modelDistribution, id: \.model) { dist in
                                         GeometryReader { geo in
                                             RoundedRectangle(cornerRadius: 4)
-                                                .fill(modelColor(dist.model))
+                                                .fill(ModelDisplayUtils.color(dist.model))
                                                 .frame(width: geo.size.width * CGFloat(dist.percentage / 100.0))
                                         }
                                     }
@@ -3712,9 +3669,9 @@ struct NativeMonitorView: View {
                                     ForEach(data.modelDistribution, id: \.model) { dist in
                                         HStack(spacing: 4) {
                                             Circle()
-                                                .fill(modelColor(dist.model))
+                                                .fill(ModelDisplayUtils.color(dist.model))
                                                 .frame(width: 8, height: 8)
-                                            Text("\(shortModelName(dist.model)) \(String(format: "%.1f%%", dist.percentage))")
+                                            Text("\(ModelDisplayUtils.shortName(dist.model)) \(String(format: "%.1f%%", dist.percentage))")
                                                 .font(.caption2)
                                         }
                                     }
@@ -3962,29 +3919,6 @@ struct NativeMonitorView: View {
             }
         }
     }
-
-    private func formatTokensShort(_ n: Int) -> String {
-        if n >= 1_000_000 {
-            return String(format: "%.1fM", Double(n) / 1_000_000.0)
-        } else if n >= 1000 {
-            return String(format: "%.0fK", Double(n) / 1000.0)
-        }
-        return "\(n)"
-    }
-
-    private func shortModelName(_ model: String) -> String {
-        if model.contains("opus") { return "Opus" }
-        if model.contains("sonnet") { return "Sonnet" }
-        if model.contains("haiku") { return "Haiku" }
-        return String(model.prefix(6))
-    }
-
-    private func modelColor(_ model: String) -> Color {
-        if model.contains("opus") { return .purple }
-        if model.contains("sonnet") { return .blue }
-        if model.contains("haiku") { return .green }
-        return .gray
-    }
 }
 
 // MARK: - Monitor Data Model
@@ -4108,7 +4042,7 @@ struct BurnRateChartView: View {
                     .foregroundStyle(warningColor.opacity(0.5))
                     .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 5]))
                     .annotation(position: .top, alignment: .trailing) {
-                        Text(chartMode == .tokens ? "한도: \(formatTokens(Int(limitValue)))" : "한도: $\(String(format: "%.0f", limitValue))")
+                        Text(chartMode == .tokens ? "한도: \(ModelDisplayUtils.formatTokens(Int(limitValue)))" : "한도: $\(String(format: "%.0f", limitValue))")
                             .font(.caption2)
                             .foregroundStyle(warningColor)
                     }
@@ -4121,7 +4055,7 @@ struct BurnRateChartView: View {
                 .foregroundStyle(chartMode == .tokens ? tokenBarColor : costBarColor)
                 .symbolSize(100)
                 .annotation(position: .top) {
-                    Text(chartMode == .tokens ? formatTokens(Int(currentValue)) : "$\(String(format: "%.2f", currentValue))")
+                    Text(chartMode == .tokens ? ModelDisplayUtils.formatTokens(Int(currentValue)) : "$\(String(format: "%.2f", currentValue))")
                         .font(.caption2.bold())
                         .foregroundStyle(chartMode == .tokens ? tokenBarColor : costBarColor)
                 }
@@ -4166,7 +4100,7 @@ struct BurnRateChartView: View {
                     AxisValueLabel {
                         if let v = value.as(Double.self) {
                             if chartMode == .tokens {
-                                Text(formatTokensShort(Int(v)))
+                                Text(ModelDisplayUtils.formatTokens(Int(v)))
                             } else {
                                 Text("$\(String(format: "%.0f", v))")
                             }
@@ -4201,29 +4135,11 @@ struct BurnRateChartView: View {
     private var projectedEndText: String {
         let valueStr: String
         if chartMode == .tokens {
-            valueStr = formatTokens(Int(projectedEndValue))
+            valueStr = ModelDisplayUtils.formatTokens(Int(projectedEndValue))
         } else {
             valueStr = String(format: "$%.2f", projectedEndValue)
         }
         return "예상 종료 시: \(valueStr)"
-    }
-
-    private func formatTokens(_ n: Int) -> String {
-        if n >= 1_000_000 {
-            return String(format: "%.2fM", Double(n) / 1_000_000.0)
-        } else if n >= 1_000 {
-            return String(format: "%.1fK", Double(n) / 1_000.0)
-        }
-        return "\(n)"
-    }
-
-    private func formatTokensShort(_ n: Int) -> String {
-        if n >= 1_000_000 {
-            return String(format: "%.1fM", Double(n) / 1_000_000.0)
-        } else if n >= 1_000 {
-            return String(format: "%.0fK", Double(n) / 1_000.0)
-        }
-        return "\(n)"
     }
 }
 
