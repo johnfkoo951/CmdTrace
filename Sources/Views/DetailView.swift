@@ -40,6 +40,8 @@ struct DetailView: View {
         switch appState.selectedTab {
         case .sessions:
             SessionDetailView()
+        case .projects:
+            ProjectsView()
         case .dashboard:
             DashboardView()
         case .configuration:

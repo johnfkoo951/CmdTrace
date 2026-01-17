@@ -14,6 +14,10 @@ struct ContentView: View {
                     .opacity(appState.selectedTab == .sessions ? 1 : 0)
                     .allowsHitTesting(appState.selectedTab == .sessions)
                 
+                ProjectsView()
+                    .opacity(appState.selectedTab == .projects ? 1 : 0)
+                    .allowsHitTesting(appState.selectedTab == .projects)
+                
                 DashboardView()
                     .opacity(appState.selectedTab == .dashboard ? 1 : 0)
                     .allowsHitTesting(appState.selectedTab == .dashboard)
@@ -66,6 +70,8 @@ struct InspectorContent: View {
             } else {
                 ContentUnavailableView("No Session", systemImage: "sidebar.right", description: Text("Select a session to view details"))
             }
+        case .projects:
+            ProjectsInspectorPanel()
         case .dashboard:
             DashboardInspectorPanel()
         case .configuration:

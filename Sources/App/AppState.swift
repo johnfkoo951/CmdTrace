@@ -4,6 +4,7 @@ import Observation
 // MARK: - Enums
 enum AppTab: String, CaseIterable {
     case sessions = "Sessions"
+    case projects = "Projects"
     case dashboard = "Dashboard"
     case configuration = "Configuration"
     case interaction = "Interaction"
@@ -11,6 +12,7 @@ enum AppTab: String, CaseIterable {
     var icon: String {
         switch self {
         case .sessions: return "bubble.left.and.bubble.right"
+        case .projects: return "folder"
         case .dashboard: return "chart.bar"
         case .configuration: return "gearshape.2"
         case .interaction: return "sparkles"
@@ -289,6 +291,9 @@ final class AppState {
     
     // Summaries
     var sessionSummaries: [String: SessionSummary] = [:]
+    
+    // Project Metadata
+    var projectMetadata: [String: ProjectMetadata] = [:]
     
     private var cachedSessions: [AgentType: [Session]] = [:]
     private var cacheLoadingStatus: [AgentType: Bool] = [:]
@@ -789,6 +794,120 @@ final class AppState {
         saveUserData()
     }
     
+    // MARK: - Projects
+    var allProjects: [String] {
+        Array(Set(sessions.map { $0.project })).sorted()
+    }
+    
+    func sessionsForProject(_ projectPath: String) -> [Session] {
+        sessions.filter { $0.project == projectPath }
+    }
+    
+    func projectStats(for projectPath: String) -> ProjectStats {
+        let projectSessions = sessionsForProject(projectPath)
+        let totalMessages = projectSessions.reduce(0) { $0 + $1.messageCount }
+        let dates = projectSessions.map { $0.lastActivity }
+        let uniqueDays = Set(dates.map { Calendar.current.startOfDay(for: $0) }).count
+        
+        return ProjectStats(
+            totalSessions: projectSessions.count,
+            totalMessages: totalMessages,
+            firstSession: projectSessions.map { $0.firstTimestamp ?? $0.lastActivity }.min(),
+            lastSession: dates.max(),
+            averageMessagesPerSession: projectSessions.isEmpty ? 0 : Double(totalMessages) / Double(projectSessions.count),
+            activeDays: uniqueDays
+        )
+    }
+    
+    func getProjectMetadata(_ path: String) -> ProjectMetadata {
+        projectMetadata[path] ?? ProjectMetadata(path: path)
+    }
+    
+    func updateProjectMetadata(_ metadata: ProjectMetadata) {
+        projectMetadata[metadata.path] = metadata
+        saveUserData()
+    }
+    
+    func toggleProjectFavorite(_ path: String) {
+        var meta = getProjectMetadata(path)
+        meta = ProjectMetadata(
+            path: meta.path,
+            customName: meta.customName,
+            description: meta.description,
+            languages: meta.languages,
+            frameworks: meta.frameworks,
+            tags: meta.tags,
+            color: meta.color,
+            isFavorite: !meta.isFavorite,
+            isPinned: meta.isPinned,
+            notes: meta.notes,
+            lastOpened: meta.lastOpened,
+            createdAt: meta.createdAt
+        )
+        projectMetadata[path] = meta
+        saveUserData()
+    }
+    
+    func toggleProjectPinned(_ path: String) {
+        var meta = getProjectMetadata(path)
+        meta = ProjectMetadata(
+            path: meta.path,
+            customName: meta.customName,
+            description: meta.description,
+            languages: meta.languages,
+            frameworks: meta.frameworks,
+            tags: meta.tags,
+            color: meta.color,
+            isFavorite: meta.isFavorite,
+            isPinned: !meta.isPinned,
+            notes: meta.notes,
+            lastOpened: meta.lastOpened,
+            createdAt: meta.createdAt
+        )
+        projectMetadata[path] = meta
+        saveUserData()
+    }
+    
+    func setProjectLanguages(_ path: String, languages: [String]) {
+        var meta = getProjectMetadata(path)
+        meta = ProjectMetadata(
+            path: meta.path,
+            customName: meta.customName,
+            description: meta.description,
+            languages: languages,
+            frameworks: meta.frameworks,
+            tags: meta.tags,
+            color: meta.color,
+            isFavorite: meta.isFavorite,
+            isPinned: meta.isPinned,
+            notes: meta.notes,
+            lastOpened: meta.lastOpened,
+            createdAt: meta.createdAt
+        )
+        projectMetadata[path] = meta
+        saveUserData()
+    }
+    
+    func setProjectFrameworks(_ path: String, frameworks: [String]) {
+        var meta = getProjectMetadata(path)
+        meta = ProjectMetadata(
+            path: meta.path,
+            customName: meta.customName,
+            description: meta.description,
+            languages: meta.languages,
+            frameworks: frameworks,
+            tags: meta.tags,
+            color: meta.color,
+            isFavorite: meta.isFavorite,
+            isPinned: meta.isPinned,
+            notes: meta.notes,
+            lastOpened: meta.lastOpened,
+            createdAt: meta.createdAt
+        )
+        projectMetadata[path] = meta
+        saveUserData()
+    }
+    
     // MARK: - Summaries
     func getSummary(for sessionId: String) -> SessionSummary? {
         sessionSummaries[sessionId]
@@ -805,6 +924,7 @@ final class AppState {
         let metadataURL = dataURL.appendingPathComponent("session-metadata.json")
         let tagsURL = dataURL.appendingPathComponent("tag-database.json")
         let summariesURL = dataURL.appendingPathComponent("summaries.json")
+        let projectsURL = dataURL.appendingPathComponent("project-metadata.json")
         
         if let data = try? Data(contentsOf: settingsURL),
            let loaded = try? JSONDecoder().decode(AppSettings.self, from: data) {
@@ -824,6 +944,11 @@ final class AppState {
         if let data = try? Data(contentsOf: summariesURL),
            let loaded = try? JSONDecoder().decode([String: SessionSummary].self, from: data) {
             sessionSummaries = loaded
+        }
+        
+        if let data = try? Data(contentsOf: projectsURL),
+           let loaded = try? JSONDecoder().decode([String: ProjectMetadata].self, from: data) {
+            projectMetadata = loaded
         }
         
         // Migrate old data if exists
@@ -871,6 +996,7 @@ final class AppState {
         let metadataURL = dataURL.appendingPathComponent("session-metadata.json")
         let tagsURL = dataURL.appendingPathComponent("tag-database.json")
         let summariesURL = dataURL.appendingPathComponent("summaries.json")
+        let projectsURL = dataURL.appendingPathComponent("project-metadata.json")
         
         if let data = try? JSONEncoder().encode(settings) {
             try? data.write(to: settingsURL)
@@ -883,6 +1009,9 @@ final class AppState {
         }
         if let data = try? JSONEncoder().encode(sessionSummaries) {
             try? data.write(to: summariesURL)
+        }
+        if let data = try? JSONEncoder().encode(projectMetadata) {
+            try? data.write(to: projectsURL)
         }
     }
     
