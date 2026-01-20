@@ -1,10 +1,26 @@
 # CmdTrace Development Roadmap
 
-## Current Version: v2.2.0
+## Current Version: v2.4.0
 
 ---
 
 ## Version History
+
+### v2.4.0 (2026-01-21)
+- **Session Archive**: Archive/unarchive sessions, bulk archive, auto-archive old sessions
+- **Bulk Operations**: Multi-select, bulk tag/archive/favorite, select all
+- **Search Highlighting**: AttributedString-based highlighting in conversation
+- **Cloud Sync UI**: Settings UI for iCloud sync (backend pending)
+- **Projects Tab**: Project metadata management with full-width dashboard layout
+
+### v2.3.0 (2026-01-18)
+- **Search Enhancement**: `date:`, `regex:`, `messages:` operators
+- **Export Sessions**: Markdown, JSON, Plain Text, HTML
+- **Session Diff**: Side-by-side comparison
+- **Statistics Dashboard**: 30-day activity, project/tag distribution
+- **Keyboard Navigation**: ↑↓ in session list
+- **Markdown Tables**: Improved rendering with auto-width
+- **Inspector Reorganization**: Session Info → Summary → Actions → Details
 
 ### v2.2.0 (2026-01-16)
 - **Configuration Tab**: Commands, Skills, Hooks, Agents, Plugins 뷰어
@@ -74,22 +90,22 @@
 
 ## Development Roadmap
 
-### Phase 1: Session Insights (v2.2) - 🔄 In Progress
+### Phase 1: Session Insights (v2.2-v2.4) - ✅ Completed
 
 #### 1.1 Tool/Skill/Hook Tracking
 | Feature | Status | Description |
 |---------|--------|-------------|
-| Tool Usage Parsing | ⏳ Planned | Parse tool calls from JSONL (Read, Write, Bash, etc.) |
-| Skill Invocation Log | ⏳ Planned | Track which skills were invoked |
-| Hook Trigger History | ⏳ Planned | Record hook trigger events |
-| Usage Statistics | ⏳ Planned | Tool usage frequency, success/failure rate |
+| Tool Usage Parsing | ✅ Done | Parse tool calls from JSONL (Read, Write, Bash, etc.) |
+| Skill Invocation Log | ✅ Done | Track which skills were invoked |
+| Hook Trigger History | ✅ Done | Record hook trigger events |
+| Usage Statistics | ✅ Done | Tool usage frequency, success/failure rate |
 | Timeline View | ⏳ Planned | Chronological tool usage visualization |
 
 #### 1.2 Session Analysis
 | Feature | Status | Description |
 |---------|--------|-------------|
-| Token Usage per Session | ⏳ Planned | Calculate token consumption per session |
-| Cost Estimation | ⏳ Planned | Display estimated cost |
+| Token Usage per Session | ✅ Done | Calculate token consumption per session |
+| Cost Estimation | ✅ Done | Display estimated cost |
 | Code Change Summary | ⏳ Planned | List of files modified in session |
 | Error Pattern Detection | ⏳ Planned | Detect recurring error patterns |
 
