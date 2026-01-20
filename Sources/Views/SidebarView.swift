@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SidebarView: View {
     @Environment(AppState.self) private var appState
+    @State private var tagSearchText: String = ""
     
     var body: some View {
         @Bindable var state = appState
@@ -84,44 +85,49 @@ struct SidebarView: View {
                 .padding(.horizontal, 12)
                 .padding(.top, 8)
                 
-                // Search and Filter Bar
-                HStack(spacing: 8) {
-                    SearchField(text: $state.searchText)
-                    
-                    Button {
-                        Task { await appState.loadSessions() }
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 13))
-                            .foregroundStyle(.secondary)
+                if appState.sidebarViewMode == .list {
+                    HStack(spacing: 8) {
+                        SearchField(text: $state.searchText)
+                        
+                        Button {
+                            Task { await appState.loadSessions() }
+                        } label: {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 13))
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Refresh Sessions")
+                        
+                        Button {
+                            state.showFavoritesOnly.toggle()
+                            appState.filterSessions()
+                        } label: {
+                            Image(systemName: state.showFavoritesOnly ? "star.fill" : "star")
+                                .font(.system(size: 13))
+                                .foregroundStyle(state.showFavoritesOnly ? .yellow : .secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .help(state.showFavoritesOnly ? "Show All" : "Show Favorites Only")
+                        
+                        Button {
+                            state.showArchivedSessions.toggle()
+                            appState.filterSessions()
+                        } label: {
+                            Image(systemName: state.showArchivedSessions ? "archivebox.fill" : "archivebox")
+                                .font(.system(size: 13))
+                                .foregroundStyle(state.showArchivedSessions ? .orange : .secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .help(state.showArchivedSessions ? "Hide Archived" : "Show Archived")
                     }
-                    .buttonStyle(.plain)
-                    .help("Refresh Sessions")
-                    
-                    Button {
-                        state.showFavoritesOnly.toggle()
-                        appState.filterSessions()
-                    } label: {
-                        Image(systemName: state.showFavoritesOnly ? "star.fill" : "star")
-                            .font(.system(size: 13))
-                            .foregroundStyle(state.showFavoritesOnly ? .yellow : .secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .help(state.showFavoritesOnly ? "Show All" : "Show Favorites Only")
-                    
-                    Button {
-                        state.showArchivedSessions.toggle()
-                        appState.filterSessions()
-                    } label: {
-                        Image(systemName: state.showArchivedSessions ? "archivebox.fill" : "archivebox")
-                            .font(.system(size: 13))
-                            .foregroundStyle(state.showArchivedSessions ? .orange : .secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .help(state.showArchivedSessions ? "Hide Archived" : "Show Archived")
+                    .padding(.horizontal, 12)
+                    .padding(.top, 10)
+                } else {
+                    TagSearchBar(tagSearchText: $tagSearchText)
+                        .padding(.horizontal, 12)
+                        .padding(.top, 10)
                 }
-                .padding(.horizontal, 12)
-                .padding(.top, 10)
                 
                 // Selected Tag Chip (search query style)
                 if let selectedTag = appState.selectedTag {
@@ -181,7 +187,7 @@ struct SidebarView: View {
                     SessionListView()
                 }
             } else {
-                TagBrowserView()
+                TagBrowserView(tagSearchText: $tagSearchText)
             }
             
             Spacer(minLength: 0)
@@ -228,7 +234,7 @@ struct TagBrowserView: View {
     @Environment(AppState.self) private var appState
     @State private var expandedFolders: Set<String> = []
     @State private var showNested: Bool = true
-    @State private var tagSearchText: String = ""
+    @Binding var tagSearchText: String
     
     var tagHierarchy: TagHierarchyNode {
         buildHierarchy(from: filteredTags)
@@ -310,25 +316,7 @@ struct TagBrowserView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Tag Browser Toolbar
             HStack(spacing: 6) {
-                // Search
-                HStack(spacing: 4) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                    TextField("Search tags...", text: $tagSearchText)
-                        .textFieldStyle(.plain)
-                        .font(.caption)
-                }
-                .padding(.horizontal, 6)
-                .padding(.vertical, 4)
-                .background(.quaternary)
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-                
-                Spacer()
-                
-                // Nested toggle
                 Button {
                     showNested.toggle()
                 } label: {
@@ -339,7 +327,6 @@ struct TagBrowserView: View {
                 .buttonStyle(.plain)
                 .help(showNested ? "Show Flat" : "Show Nested")
                 
-                // Expand/Collapse all
                 Button {
                     if expandedFolders.isEmpty {
                         expandAllFolders(tagHierarchy)
@@ -354,7 +341,6 @@ struct TagBrowserView: View {
                 .buttonStyle(.plain)
                 .help(expandedFolders.isEmpty ? "Expand All" : "Collapse All")
                 
-                // Sort menu
                 Menu {
                     ForEach(TagSortMode.allCases, id: \.self) { mode in
                         Button {
@@ -377,13 +363,12 @@ struct TagBrowserView: View {
                 .menuStyle(.borderlessButton)
                 .fixedSize()
                 .help("Sort Tags")
+                
+                Spacer()
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.vertical, 6)
             
-            Divider()
-            
-            // Tag List
             if appState.allTags.isEmpty {
                 ContentUnavailableView {
                     Label("No Tags", systemImage: "tag")
@@ -841,6 +826,45 @@ struct FlowLayout: Layout {
         }
         
         return (positions, CGSize(width: maxWidth, height: y + rowHeight))
+    }
+}
+
+// MARK: - Tag Search Bar
+struct TagSearchBar: View {
+    @Binding var tagSearchText: String
+    @FocusState private var isFocused: Bool
+    
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 12))
+                .foregroundStyle(isFocused ? .primary : .tertiary)
+            
+            TextField("Search tags...", text: $tagSearchText)
+                .textFieldStyle(.plain)
+                .font(.system(size: 13))
+                .focused($isFocused)
+            
+            if !tagSearchText.isEmpty {
+                Button {
+                    tagSearchText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(.fill.opacity(0.5))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(isFocused ? Color.accentColor.opacity(0.5) : .clear, lineWidth: 1)
+        )
+        .animation(.easeInOut(duration: 0.15), value: isFocused)
     }
 }
 
