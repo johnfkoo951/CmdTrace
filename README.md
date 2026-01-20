@@ -68,6 +68,7 @@ Switch between Claude Code, OpenCode, and Antigravity instantly. Sessions are pr
 
 - **Custom Names**: Give sessions meaningful titles
 - **Tags**: Nested tags with colors and importance levels
+- **Tag Rename**: Bulk rename tags across all sessions (v2.4.1+)
 - **Favorites & Pins**: Quick access to important sessions
 - **Deep Links**: `cmdtrace://session/{id}` for quick access
 
@@ -119,6 +120,16 @@ Comprehensive analytics for your sessions:
 - Project distribution
 - Tag usage breakdown
 - Total messages and session counts
+
+### 🏷️ Tag Management (v2.4.1+)
+
+Enhanced tag organization features:
+
+- **Tag Rename**: Rename tags and update all sessions automatically
+- **Real-time Filtering**: Filter existing tags as you type in tag sheet
+- **Quick Dismiss**: Click outside tag popup to close
+- **One-click CLI Switch**: Segmented button UI for instant CLI switching
+
 ---
 
 ## Screenshots

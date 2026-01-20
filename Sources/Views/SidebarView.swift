@@ -549,6 +549,8 @@ struct TagRowContent: View {
     let displayName: String
     let count: Int
     let isSelected: Bool
+    @State private var showRenameSheet = false
+    @State private var newTagName = ""
     
     var body: some View {
         Button {
@@ -585,7 +587,10 @@ struct TagRowContent: View {
         }
         .buttonStyle(.plain)
         .contextMenu {
-            TagContextMenu(tagInfo: tagInfo)
+            TagContextMenu(tagInfo: tagInfo, showRenameSheet: $showRenameSheet, newTagName: $newTagName)
+        }
+        .sheet(isPresented: $showRenameSheet) {
+            TagRenameSheet(oldName: tagInfo.name, newName: $newTagName)
         }
     }
 }
@@ -595,6 +600,8 @@ struct TagFlatRowView: View {
     @Environment(AppState.self) private var appState
     let tagInfo: TagInfo
     let count: Int
+    @State private var showRenameSheet = false
+    @State private var newTagName = ""
     
     var isSelected: Bool {
         appState.selectedTag == tagInfo.name
@@ -639,17 +646,29 @@ struct TagFlatRowView: View {
         .background(isSelected ? Color.accentColor.opacity(0.15) : .clear)
         .clipShape(RoundedRectangle(cornerRadius: 4))
         .contextMenu {
-            TagContextMenu(tagInfo: tagInfo)
+            TagContextMenu(tagInfo: tagInfo, showRenameSheet: $showRenameSheet, newTagName: $newTagName)
+        }
+        .sheet(isPresented: $showRenameSheet) {
+            TagRenameSheet(oldName: tagInfo.name, newName: $newTagName)
         }
     }
 }
 
-// MARK: - Tag Context Menu (Color & Important) - Fixed to use passed tagInfo
+// MARK: - Tag Context Menu (Color & Important)
 struct TagContextMenu: View {
     @Environment(AppState.self) private var appState
     let tagInfo: TagInfo
+    @Binding var showRenameSheet: Bool
+    @Binding var newTagName: String
     
     var body: some View {
+        Button {
+            newTagName = tagInfo.name
+            showRenameSheet = true
+        } label: {
+            Label("Rename Tag", systemImage: "pencil")
+        }
+        
         Menu {
             ForEach(TagColors.presets, id: \.hex) { preset in
                 Button {
@@ -661,7 +680,6 @@ struct TagContextMenu: View {
                     )
                     appState.updateTagInfo(updated)
                 } label: {
-                    // Use SF Symbol circle.fill with foregroundColor for menu compatibility
                     Label(preset.name, systemImage: "circle.fill")
                         .symbolRenderingMode(.palette)
                         .foregroundStyle(Color(hex: preset.hex) ?? .blue)
@@ -671,7 +689,6 @@ struct TagContextMenu: View {
             Label("Change Color", systemImage: "paintpalette")
         }
         
-        // Important toggle
         Button {
             let updated = TagInfo(
                 name: tagInfo.name,
@@ -689,12 +706,56 @@ struct TagContextMenu: View {
         
         Divider()
         
-        // Delete
         Button(role: .destructive) {
             appState.deleteTag(tagInfo.name)
         } label: {
             Label("Delete Tag", systemImage: "trash")
         }
+    }
+}
+
+struct TagRenameSheet: View {
+    @Environment(AppState.self) private var appState
+    @Environment(\.dismiss) private var dismiss
+    let oldName: String
+    @Binding var newName: String
+    
+    var affectedSessionCount: Int {
+        appState.sessionMetadata.values.filter { $0.tags.contains(oldName) }.count
+    }
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            Text("Rename Tag")
+                .font(.headline)
+            
+            TextField("Tag name", text: $newName)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 300)
+            
+            if affectedSessionCount > 0 {
+                Text("\(affectedSessionCount) session(s) will be updated")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            
+            HStack {
+                Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.escape)
+                
+                Button("Rename") {
+                    let trimmed = newName.trimmingCharacters(in: .whitespaces)
+                    if !trimmed.isEmpty && trimmed != oldName {
+                        appState.renameTag(from: oldName, to: trimmed)
+                    }
+                    dismiss()
+                }
+                .keyboardShortcut(.return)
+                .buttonStyle(.borderedProminent)
+                .disabled(newName.trimmingCharacters(in: .whitespaces).isEmpty || newName == oldName)
+            }
+        }
+        .padding()
     }
 }
 

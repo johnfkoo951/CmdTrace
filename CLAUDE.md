@@ -239,7 +239,7 @@ When executing CLI tools (ccusage, claude-monitor) from the GUI:
 - Session loading 최적화 필요
 
 
-Current: v2.4.0
+Current: v2.4.1
 
 ### Version Management
 
