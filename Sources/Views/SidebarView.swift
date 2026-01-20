@@ -1169,7 +1169,7 @@ struct SessionRow: View {
         .sheet(isPresented: $showRenameSheet) {
             RenameSheet(sessionId: session.id, currentName: $newName)
         }
-        .popover(isPresented: $showTagSheet) {
+        .popover(isPresented: $showTagSheet, arrowEdge: .leading) {
             TagSheet(sessionId: session.id)
         }
     }

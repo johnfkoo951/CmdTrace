@@ -91,58 +91,31 @@ struct CLIToolPicker: View {
     }
 
     var body: some View {
-        Menu {
+        HStack(spacing: 2) {
             ForEach(enabledCLIs, id: \.self) { cli in
                 Button {
-                    withAnimation(.none) {
+                    withAnimation(.easeInOut(duration: 0.15)) {
                         appState.selectedCLI = cli
                     }
                 } label: {
-                    HStack {
+                    HStack(spacing: 4) {
                         Image(systemName: appState.settings.iconFor(cli))
+                            .font(.system(size: 11))
                         Text(cli.rawValue)
-                        if cli == .antigravity {
-                            Text("Beta")
-                                .font(.caption2)
-                                .foregroundStyle(.orange)
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 1)
-                                .background(.orange.opacity(0.15))
-                                .clipShape(RoundedRectangle(cornerRadius: 3))
-                        }
-                        if appState.selectedCLI == cli {
-                            Spacer()
-                            Image(systemName: "checkmark")
-                        }
+                            .font(.system(size: 11, weight: .medium))
                     }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(appState.selectedCLI == cli ? Color.accentColor : Color.clear)
+                    .foregroundStyle(appState.selectedCLI == cli ? .white : .secondary)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
+                .buttonStyle(.plain)
             }
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: appState.settings.iconFor(appState.selectedCLI))
-                    .font(.system(size: 13))
-                Text(appState.selectedCLI.rawValue)
-                    .font(.system(size: 13, weight: .medium))
-                if appState.selectedCLI == .antigravity {
-                    Text("Beta")
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundStyle(.orange)
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 2)
-                        .background(.orange.opacity(0.15))
-                        .clipShape(RoundedRectangle(cornerRadius: 3))
-                }
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(.quaternary.opacity(0.8))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
         }
-        .menuStyle(.borderlessButton)
-        .fixedSize()
+        .padding(3)
+        .background(.quaternary.opacity(0.5))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }
 
