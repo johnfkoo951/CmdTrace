@@ -87,7 +87,7 @@ struct CLIToolPicker: View {
     @Environment(AppState.self) private var appState
 
     var enabledCLIs: [CLITool] {
-        appState.settings.enabledCLIs
+        CLITool.allCases.filter { appState.settings.enabledCLIs.contains($0) }
     }
 
     var body: some View {
