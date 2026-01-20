@@ -1305,31 +1305,43 @@ struct TagSheet: View {
             }
             .frame(width: 350)
             
-            if !appState.allTags.isEmpty {
-                Text("Existing tags:")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                
-                FlowLayout(spacing: 6) {
-                    ForEach(appState.allTags.filter { !tags.contains($0.name) }) { tagInfo in
-                        Button {
-                            appState.addTag(tagInfo.name, to: sessionId)
-                        } label: {
-                            HStack(spacing: 4) {
-                                Circle()
-                                    .fill(tagInfo.swiftUIColor)
-                                    .frame(width: 8, height: 8)
-                                Text(tagInfo.name)
-                                    .font(.caption)
-                            }
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(tagInfo.swiftUIColor.opacity(0.2))
-                            .clipShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                    }
+            let availableTags = appState.allTags.filter { !tags.contains($0.name) }
+            if !availableTags.isEmpty {
+                HStack {
+                    Text("Existing tags")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("(\(availableTags.count))")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                    Spacer()
                 }
+                .frame(width: 350)
+                
+                ScrollView {
+                    FlowLayout(spacing: 6) {
+                        ForEach(availableTags) { tagInfo in
+                            Button {
+                                appState.addTag(tagInfo.name, to: sessionId)
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Circle()
+                                        .fill(tagInfo.swiftUIColor)
+                                        .frame(width: 8, height: 8)
+                                    Text(tagInfo.name)
+                                        .font(.caption)
+                                }
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(tagInfo.swiftUIColor.opacity(0.2))
+                                .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .frame(width: 350)
+                }
+                .frame(maxHeight: 120)
                 .frame(width: 350)
             }
             
