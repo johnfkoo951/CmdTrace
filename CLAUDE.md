@@ -20,18 +20,28 @@ CmdTrace is a session viewer for CLI-based AI coding assistants (Claude Code, Op
 ```
 Sources/
 ├── App/
-│   ├── CmdTraceApp.swift    # App entry point, window/menu config
-│   └── AppState.swift       # Global state (@Observable), settings, persistence
+│   ├── CmdTraceApp.swift        # App entry point, window/menu config
+│   └── AppState.swift           # Global state (@Observable), settings, persistence
 ├── Models/
-│   ├── Session.swift        # Session data model
-│   └── Message.swift        # Message/conversation models
+│   ├── Session.swift            # Session data model
+│   ├── Message.swift            # Message/conversation models
+│   └── UsageData.swift          # Usage data models (UsageData, UsageViewMode)
 ├── Services/
-│   └── SessionService.swift # JSONL file parsing, session loading
+│   └── SessionService.swift     # JSONL file parsing, session loading
 └── Views/
-    ├── ContentView.swift    # Main layout (NavigationSplitView)
-    ├── SidebarView.swift    # Session list, tags, search/filter
-    ├── DetailView.swift     # Conversation view, dashboard, AI interaction, usage tools
-    └── SettingsView.swift   # App settings UI
+    ├── ContentView.swift        # Main layout (NavigationSplitView)
+    ├── SidebarView.swift        # Session list, tags, search/filter
+    ├── DetailView.swift         # Core views: DetailView, SessionDetailView, ConversationView, SessionHeader, InspectorPanel, MessageBubble, HelperViews (~1900 lines)
+    ├── DashboardView.swift      # Dashboard tab: DashboardView, DashboardInspectorPanel (~300 lines)
+    ├── UsageViews.swift         # Usage components: UsageSection, ClaudePlan, DailyUsageRow, MonthlyUsageRow, BlockUsageRow, UsageToolsSection (~730 lines)
+    ├── NativeMonitorView.swift  # Real-time monitor: NativeMonitorView, MonitorData, BurnRateChartView, MonitorBarView (~780 lines)
+    ├── InteractionView.swift    # AI tab: InteractionView, AIInspectorPanel (~170 lines)
+    ├── MarkdownTextView.swift   # Markdown rendering: MarkdownText with code blocks, tables, callouts (~270 lines)
+    ├── SessionInsightsView.swift # Session insights: TokenUsageView, ToolUsageView, ModelUsageView (~375 lines)
+    ├── StatisticsView.swift     # Statistics sheet
+    ├── ConfigurationView.swift  # Configuration tab
+    ├── ProjectsView.swift       # Projects tab
+    └── SettingsView.swift       # App settings UI
 ```
 
 ## Key Features
