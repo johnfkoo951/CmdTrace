@@ -1306,12 +1306,16 @@ struct TagSheet: View {
             .frame(width: 350)
             
             let availableTags = appState.allTags.filter { !tags.contains($0.name) }
+            let filteredTags = newTag.isEmpty 
+                ? availableTags 
+                : availableTags.filter { $0.name.localizedCaseInsensitiveContains(newTag) }
+            
             if !availableTags.isEmpty {
                 HStack {
                     Text("Existing tags")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Text("(\(availableTags.count))")
+                    Text("(\(filteredTags.count)/\(availableTags.count))")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                     Spacer()
@@ -1320,7 +1324,7 @@ struct TagSheet: View {
                 
                 ScrollView {
                     FlowLayout(spacing: 6) {
-                        ForEach(availableTags) { tagInfo in
+                        ForEach(filteredTags) { tagInfo in
                             Button {
                                 appState.addTag(tagInfo.name, to: sessionId)
                             } label: {
