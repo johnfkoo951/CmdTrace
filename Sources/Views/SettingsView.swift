@@ -62,6 +62,61 @@ struct SettingsView: View {
                     CloudSyncSettingsView()
                 }
                 
+                Section("Local API Server") {
+                    HStack {
+                        Image(systemName: "network")
+                            .font(.title2)
+                            .foregroundStyle(appState.localServer.isRunning ? .green : .secondary)
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Web Dashboard Server")
+                                .font(.headline)
+                            
+                            if appState.localServer.isRunning {
+                                Text("Running on http://localhost:\(appState.settings.localServerPort)")
+                                    .font(.caption)
+                                    .foregroundStyle(.green)
+                                    .textSelection(.enabled)
+                            } else {
+                                Text("Serve session data to browser dashboard")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        
+                        Spacer()
+                        
+                        Toggle("", isOn: Binding(
+                            get: { appState.localServer.isRunning },
+                            set: { _ in appState.toggleLocalServer() }
+                        ))
+                        .labelsHidden()
+                    }
+                    
+                    if appState.localServer.isRunning {
+                        HStack {
+                            Button("Open Dashboard") {
+                                if let url = URL(string: "http://localhost:\(appState.settings.localServerPort)/api/health") {
+                                    NSWorkspace.shared.open(url)
+                                }
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                            
+                            Button("Copy URL") {
+                                NSPasteboard.general.clearContents()
+                                NSPasteboard.general.setString("http://localhost:\(appState.settings.localServerPort)", forType: .string)
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
+                    }
+                    
+                    Text("Enables a local HTTP server for the web dashboard. Data stays on your machine.")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+                
                 Section("Obsidian Integration") {
                     LabeledContent("Vault Path") {
                         HStack {

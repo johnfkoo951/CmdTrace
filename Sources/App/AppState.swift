@@ -180,6 +180,10 @@ struct AppSettings: Codable, Equatable {
     
     // Cloud Sync
     var cloudSyncEnabled: Bool = false
+    
+    // Local Server
+    var localServerEnabled: Bool = false
+    var localServerPort: UInt16 = 19840
 
     // Context Summary Settings
     var contextMaxMessages: Int = 50
@@ -305,6 +309,9 @@ final class AppState {
     var cloudSyncStatus: CloudSyncService.SyncStatus = .idle
     var lastCloudSyncDate: Date?
     
+    let localServer = LocalServer()
+    private var apiRouter: APIRouter?
+    
     init() {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         let appDir = appSupport.appendingPathComponent("CmdTrace")
@@ -313,8 +320,10 @@ final class AppState {
         persistence = PersistenceManager(dataURL: appDir)
         
         loadUserData()
-        // Load all CLI sessions in background for instant switching
         Task { await preloadAllSessions() }
+        if settings.localServerEnabled {
+            startLocalServer()
+        }
     }
     
     var selectedCLI: CLITool {
@@ -662,6 +671,33 @@ final class AppState {
             summaries: sessionSummaries,
             projectMetadata: projectMetadata
         )
+    }
+    
+    // MARK: - Local Server
+    
+    func startLocalServer() {
+        let router = APIRouter(appState: self)
+        self.apiRouter = router
+        localServer.port = settings.localServerPort
+        localServer.start { request in
+            await router.handle(request)
+        }
+    }
+    
+    func stopLocalServer() {
+        localServer.stop()
+        apiRouter = nil
+    }
+    
+    func toggleLocalServer() {
+        if localServer.isRunning {
+            stopLocalServer()
+            settings.localServerEnabled = false
+        } else {
+            startLocalServer()
+            settings.localServerEnabled = true
+        }
+        saveUserData()
     }
     
     @MainActor
