@@ -1,10 +1,27 @@
 # CmdTrace Development Roadmap
 
-## Current Version: v2.4.0
+## Current Version: v2.4.1
 
 ---
 
 ## Version History
+
+### v2.4.1 (2026-02-01)
+- **Architecture Refactor**: DetailView.swift (3700+ lines) → 모듈별 파일로 분리
+  - `SessionHeaderView`, `InspectorPanelView`, `MessageBubbleView`, `HelperViews`, `SessionListViews`, `TagBrowserView`
+- **AppState Refactor**: AppState.swift → 매니저 클래스로 분리
+  - `PersistenceManager`, `ProjectManager`, `SessionFilter`, `TagManager`
+- **Service Layer**: 서비스 로직 분리
+  - `SummaryService`, `TerminalService`, `Utilities/`
+- **Tag System Enhancement**:
+  - 태그 이름 변경 + 모든 세션에 일괄 업데이트
+  - 태그 시트에서 실시간 필터링
+  - Tags 뷰 전용 검색바
+- **UI Polish**:
+  - CLI 셀렉터 Segmented 버튼 UI 개선
+  - 태그 팝오버 외부 클릭 시 닫기
+  - CLI 토글 순서 고정
+- **Website Overhaul**: 랜딩 페이지 전면 리디자인
 
 ### v2.4.0 (2026-01-21)
 - **Session Archive**: Archive/unarchive sessions, bulk archive, auto-archive old sessions
@@ -12,6 +29,7 @@
 - **Search Highlighting**: AttributedString-based highlighting in conversation
 - **Cloud Sync UI**: Settings UI for iCloud sync (backend pending)
 - **Projects Tab**: Project metadata management with full-width dashboard layout
+- **Configuration Enhancement**: Copy, export, auto-refresh 기능 추가
 
 ### v2.3.0 (2026-01-18)
 - **Search Enhancement**: `date:`, `regex:`, `messages:` operators
@@ -29,15 +47,21 @@
 - Global/Project 스코프 필터
 - 카테고리별 도구 그룹핑 및 프로그레스 바
 
-### v2.1.0 (2025-01-15)
+### v2.1.0 (2026-01-15)
+- AI Summary 다중 환경 호환성 개선
 - Resume 함수 통합 리팩토링
-- async/await 경고 수정
+- 모든 AI Provider (Anthropic, OpenAI, Gemini, Grok) API 호환성 수정
+- JSON 파싱 안정화
+- 2026 추천 모델 목록 업데이트
+- Tag/QuickActions/Obsidian Export 기능 개선
 - 웹사이트 Gatekeeper/권한 안내 추가
 
-### v2.0.0 (2025-01-XX)
+### v2.0.0 (2026-01-XX)
 - Native Monitoring View (ccusage 연동)
 - Burn Rate Chart (Swift Charts)
 - Color Customization
+- DMG 빌드 스크립트
+- 종합 README 및 스크린샷
 
 ### v1.0.0 (Initial Release)
 - 세션 뷰어 (Claude Code, OpenCode, Antigravity)
@@ -62,6 +86,8 @@
 | Favorites & Pins | ✅ Done | v1.0.0 |
 | Resume Session | ✅ Done | v1.0.0 |
 | Deep Links | ✅ Done | v1.0.0 |
+| Tag Rename with Bulk Update | ✅ Done | v2.4.1 |
+| Tag Real-time Filtering | ✅ Done | v2.4.1 |
 
 ### AI Features
 | Feature | Status | Version |
@@ -79,6 +105,32 @@
 | Burn Rate Chart | ✅ Done | v2.0.0 |
 | Plan Limits (Pro, Max5, Max20) | ✅ Done | v2.0.0 |
 
+### Session Analysis
+| Feature | Status | Version |
+|---------|--------|---------|
+| Configuration Tab | ✅ Done | v2.2.0 |
+| Session Insights (Token/Cost) | ✅ Done | v2.2.0 |
+| Tool Usage Statistics | ✅ Done | v2.2.0 |
+| Search Enhancement (date/regex/messages) | ✅ Done | v2.3.0 |
+| Export (Markdown/JSON/Text/HTML) | ✅ Done | v2.3.0 |
+| Session Diff | ✅ Done | v2.3.0 |
+| Statistics Dashboard | ✅ Done | v2.3.0 |
+
+### Organization
+| Feature | Status | Version |
+|---------|--------|---------|
+| Session Archive & Bulk Ops | ✅ Done | v2.4.0 |
+| Search Highlighting | ✅ Done | v2.4.0 |
+| Projects Tab | ✅ Done | v2.4.0 |
+| Cloud Sync UI | ⚠️ UI Only | v2.4.0 |
+
+### Architecture
+| Feature | Status | Version |
+|---------|--------|---------|
+| DetailView Modular Split | ✅ Done | v2.4.1 |
+| AppState Manager Extraction | ✅ Done | v2.4.1 |
+| Service Layer Separation | ✅ Done | v2.4.1 |
+
 ### Export
 | Feature | Status | Version |
 |---------|--------|---------|
@@ -90,148 +142,91 @@
 
 ## Development Roadmap
 
-### Phase 1: Session Insights (v2.2-v2.4) - ✅ Completed
+### Phase 1: Foundation (v1.0.0 ~ v2.1.0) ✅ Completed
 
-#### 1.1 Tool/Skill/Hook Tracking
-| Feature | Status | Description |
-|---------|--------|-------------|
-| Tool Usage Parsing | ✅ Done | Parse tool calls from JSONL (Read, Write, Bash, etc.) |
-| Skill Invocation Log | ✅ Done | Track which skills were invoked |
-| Hook Trigger History | ✅ Done | Record hook trigger events |
-| Usage Statistics | ✅ Done | Tool usage frequency, success/failure rate |
-| Timeline View | ⏳ Planned | Chronological tool usage visualization |
+세션 뷰어 기본 기능, AI 요약, 모니터링, 멀티 CLI 지원.
 
-#### 1.2 Session Analysis
-| Feature | Status | Description |
-|---------|--------|-------------|
-| Token Usage per Session | ✅ Done | Calculate token consumption per session |
-| Cost Estimation | ✅ Done | Display estimated cost |
-| Code Change Summary | ⏳ Planned | List of files modified in session |
-| Error Pattern Detection | ⏳ Planned | Detect recurring error patterns |
+| Milestone | Description | Status |
+|-----------|-------------|--------|
+| v1.0.0 | Session viewer, search, tags, resume, AI summary, deep links | ✅ |
+| v2.0.0 | Native monitoring, burn rate chart, ccusage integration | ✅ |
+| v2.1.0 | API 호환성 수정, AI provider 안정화, resume 리팩토링 | ✅ |
 
----
+### Phase 2: Session Insights (v2.2.0 ~ v2.3.0) ✅ Completed
 
-### Phase 2: Cloud Sync (v2.3)
+세션 분석, 설정 뷰어, 검색 고도화, 내보내기.
 
-#### 2.1 Authentication
-| Feature | Status | Description |
-|---------|--------|-------------|
-| Google Sign-In | ⏳ Planned | OAuth 2.0 based login |
-| Apple Sign-In | ⏳ Planned | Native macOS authentication |
-| Account Management | ⏳ Planned | Settings, logout, deletion |
+| Milestone | Description | Status |
+|-----------|-------------|--------|
+| v2.2.0 | Configuration tab, session insights (token/cost/tools) | ✅ |
+| v2.3.0 | Advanced search, export, session diff, statistics dashboard | ✅ |
 
-#### 2.2 Cross-Device Sync
-| Feature | Status | Description |
-|---------|--------|-------------|
-| Metadata Sync | ⏳ Planned | Sync tags, favorites, custom names |
-| Summary Sync | ⏳ Planned | Sync AI-generated summaries |
-| Settings Sync | ⏳ Planned | Sync app settings |
-| Conflict Resolution | ⏳ Planned | UI for resolving sync conflicts |
+### Phase 3: Organization & Architecture (v2.4.0 ~ v2.4.1) ✅ Completed
 
-> ⚠️ **Privacy**: Session content stays local. Only metadata syncs.
+세션 정리 기능 강화, 코드 아키텍처 개선.
 
-#### 2.3 Backend Infrastructure
-| Feature | Status | Description |
-|---------|--------|-------------|
-| Firebase/Supabase | ⏳ Planned | Realtime DB + Auth |
-| CloudKit Option | ⏳ Planned | Apple ecosystem alternative |
-| E2E Encryption | ⏳ Planned | Optional encryption |
+| Milestone | Description | Status |
+|-----------|-------------|--------|
+| v2.4.0 | Archive, bulk ops, search highlighting, projects tab | ✅ |
+| v2.4.1 | Codebase modular refactor, tag system enhancement, website overhaul | ✅ |
 
----
+### Phase 4: Cloud Sync & Automation (v2.5.0) 🔄 Next Up
 
-### Phase 3: Automation & AI (v2.4)
+| Feature | Description | Priority |
+|---------|-------------|----------|
+| Cloud Sync Backend | CloudKit container setup, metadata sync | High |
+| Auto-Tagging | AI-based automatic tag suggestions | Medium |
+| Auto-Summary on Close | Generate summary when session ends | Medium |
+| Smart Search Suggestions | Search autocomplete | Low |
 
-#### 3.1 Smart Automation
-| Feature | Status | Description |
-|---------|--------|-------------|
-| Auto-Tagging | ⏳ Planned | AI-based automatic tag suggestions |
-| Auto-Summary on Close | ⏳ Planned | Generate summary when session ends |
-| Smart Search Suggestions | ⏳ Planned | Search autocomplete |
-| Related Sessions | ⏳ Planned | Recommend similar sessions |
+### Phase 5: Ecosystem Integration (v2.6.0+)
 
-#### 3.2 Workflow Automation
-| Feature | Status | Description |
-|---------|--------|-------------|
-| Scheduled Backup | ⏳ Planned | Periodic backup (iCloud, external) |
-| Export Automation | ⏳ Planned | Conditional auto-export to Obsidian |
-| Cleanup Rules | ⏳ Planned | Auto-cleanup old sessions |
+| Feature | Description | Priority |
+|---------|-------------|----------|
+| Menu Bar App | Quick access widget in menu bar | High |
+| Global Hotkey | System-wide shortcut to open CmdTrace | High |
+| Spotlight Search | System search integration | Medium |
+| Raycast Extension | Quick session search/launch | Medium |
+| Shortcuts App | Siri Shortcuts support | Low |
+
+### Phase 6: Collaboration (v3.0.0)
+
+| Feature | Description | Priority |
+|---------|-------------|----------|
+| Session Sharing | Generate read-only share links | Medium |
+| Team Workspaces | Shared tag/classification system | Low |
+| Knowledge Base | Team session archive | Low |
+
+### Phase 7: Advanced Analytics (v3.1.0)
+
+| Feature | Description | Priority |
+|---------|-------------|----------|
+| Weekly/Monthly Reports | Period-based usage reports | Medium |
+| Git Integration | Link sessions to commits | Medium |
+| Code Impact Analysis | Track AI-written code | Low |
+| Timeline View | Chronological tool usage visualization | Low |
 
 ---
 
-### Phase 4: Collaboration (v2.5)
+## Backlog
 
-#### 4.1 Session Sharing
-| Feature | Status | Description |
-|---------|--------|-------------|
-| Share Link | ⏳ Planned | Generate read-only share links |
-| Export Formats | ⏳ Planned | Markdown, HTML, PDF export |
-| Snippet Sharing | ⏳ Planned | Share specific conversation parts |
-
-#### 4.2 Team Features
-| Feature | Status | Description |
-|---------|--------|-------------|
-| Team Workspaces | ⏳ Planned | Shared tag/classification system |
-| Session Comments | ⏳ Planned | Add comments to sessions |
-| Knowledge Base | ⏳ Planned | Team session archive |
+| Feature | Description | Priority |
+|---------|-------------|----------|
+| Session Merge | Combine multiple sessions | Medium |
+| Full-text Index | SQLite FTS for faster content search | Medium |
+| macOS Widgets | Recent sessions widget | Low |
+| VS Code Extension | Sidebar session browsing | Low |
+| Notion Export | Export to Notion database | Low |
+| E2E Encryption | Optional encryption for sync | Low |
 
 ---
 
-### Phase 5: Ecosystem Integration (v3.0)
+## Known Issues
 
-#### 5.1 IDE Integration
-| Feature | Status | Description |
-|---------|--------|-------------|
-| VS Code Extension | ⏳ Planned | Sidebar session browsing |
-| JetBrains Plugin | ⏳ Planned | IntelliJ/WebStorm support |
-| Cursor Integration | ⏳ Planned | Cursor IDE integration |
-
-#### 5.2 macOS Integration
-| Feature | Status | Description |
-|---------|--------|-------------|
-| Spotlight Search | ⏳ Planned | System search integration |
-| Quick Look | ⏳ Planned | Session file preview |
-| Shortcuts App | ⏳ Planned | Automation actions |
-| Menu Bar Widget | ⏳ Planned | Quick access widget |
-
-#### 5.3 External Services
-| Feature | Status | Description |
-|---------|--------|-------------|
-| Raycast Extension | ⏳ Planned | Quick session search/launch |
-| Alfred Workflow | ⏳ Planned | Power user support |
-| Notion Export | ⏳ Planned | Export to Notion database |
-| Linear/Jira Link | ⏳ Planned | Issue tracker integration |
-
----
-
-### Phase 6: Advanced Analytics (v3.1)
-
-#### 6.1 Productivity Dashboard
-| Feature | Status | Description |
-|---------|--------|-------------|
-| Weekly/Monthly Reports | ⏳ Planned | Period-based usage reports |
-| Productivity Trends | ⏳ Planned | Trend graphs |
-| Project Insights | ⏳ Planned | Per-project AI usage analysis |
-| Learning Patterns | ⏳ Planned | FAQ pattern analysis |
-
-#### 6.2 Code Insights
-| Feature | Status | Description |
-|---------|--------|-------------|
-| Git Integration | ⏳ Planned | Link sessions to commits |
-| Code Impact Analysis | ⏳ Planned | Track AI-written code |
-| Refactoring History | ⏳ Planned | Refactoring history visualization |
-
----
-
-## Priority Matrix
-
-| Phase | Difficulty | Value | Est. Duration |
-|-------|------------|-------|---------------|
-| Phase 1 (Insights) | Medium | High | 2-3 weeks |
-| Phase 2 (Cloud) | High | Very High | 4-6 weeks |
-| Phase 3 (Automation) | Medium | High | 2-3 weeks |
-| Phase 4 (Collaboration) | High | Medium | 4-5 weeks |
-| Phase 5 (Integration) | Medium | Medium | 3-4 weeks |
-| Phase 6 (Analytics) | High | Medium | 4-5 weeks |
+| Issue | Description | Workaround |
+|-------|-------------|------------|
+| Cloud Sync | CloudKit container not configured | UI ready, backend v2.5.0 |
+| Large Sessions | Slow loading for 1000+ message sessions | Pagination planned |
 
 ---
 
@@ -242,6 +237,7 @@
 | ✅ Done | Implemented and released |
 | 🔄 In Progress | Currently being developed |
 | ⏳ Planned | Scheduled for development |
+| ⚠️ Partial | Partially implemented |
 | 💡 Idea | Under consideration |
 | ❌ Cancelled | Not pursuing |
 

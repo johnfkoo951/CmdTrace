@@ -292,11 +292,7 @@ struct DailyUsageRow: View {
     }
 
     private func formatDate(_ dateString: String) -> String {
-        let components = dateString.split(separator: "-")
-        if components.count >= 3 {
-            return "\(components[1])/\(components[2])"
-        }
-        return dateString
+        DateFormattingUtils.formatDate(dateString)
     }
 
 }
@@ -380,13 +376,7 @@ struct MonthlyUsageRow: View {
     }
 
     private func formatMonth(_ monthString: String) -> String {
-        // "2025-12" -> "25/12"
-        let components = monthString.split(separator: "-")
-        if components.count >= 2 {
-            let year = String(components[0].suffix(2))
-            return "\(year)/\(components[1])"
-        }
-        return monthString
+        DateFormattingUtils.formatMonth(monthString)
     }
 }
 
@@ -449,16 +439,7 @@ struct BlockUsageRow: View {
     }
 
     private func formatTime(_ timeString: String) -> String {
-        // "2025-12-13T10:00:00" -> "12/13 10:00"
-        let parts = timeString.split(separator: "T")
-        if parts.count == 2 {
-            let dateParts = parts[0].split(separator: "-")
-            let timeParts = parts[1].split(separator: ":")
-            if dateParts.count >= 3 && timeParts.count >= 2 {
-                return "\(dateParts[1])/\(dateParts[2]) \(timeParts[0]):\(timeParts[1])"
-            }
-        }
-        return timeString
+        DateFormattingUtils.formatTime(timeString)
     }
 }
 

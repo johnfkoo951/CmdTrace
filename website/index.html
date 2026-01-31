@@ -3,566 +3,607 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CmdTrace - AI Coding Session Viewer for macOS</title>
+    <title>CmdTrace - AI Session Viewer</title>
     <meta name="description" content="Stop losing your AI conversations. CmdTrace brings order to the chaos of Claude Code, OpenCode, and Antigravity sessions.">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <!-- Navigation -->
     <nav class="navbar">
         <div class="nav-container">
             <a href="#" class="nav-logo">
-                <img src="icon.png" alt="CmdTrace" class="logo-icon">
-                <span>CmdTrace</span>
+                <span class="logo-bracket">[</span>
+                <span class="logo-text">CMD</span>
+                <span class="logo-accent">TRACE</span>
+                <span class="logo-bracket">]</span>
             </a>
             <div class="nav-links">
-                <a href="#problem" data-i18n="nav.problem">The Problem</a>
-                <a href="#solution" data-i18n="nav.solution">Solution</a>
-                <a href="#features" data-i18n="nav.features">Features</a>
-                <a href="#download" data-i18n="nav.download">Download</a>
+                <a href="#problem" data-i18n="nav.problem">PROBLEM</a>
+                <a href="#solution" data-i18n="nav.solution">SOLUTION</a>
+                <a href="#features" data-i18n="nav.features">FEATURES</a>
+                <a href="#download" data-i18n="nav.download">DOWNLOAD</a>
             </div>
             <div class="nav-actions">
                 <button class="lang-toggle" onclick="toggleLanguage()" aria-label="Toggle language">
                     <span class="lang-indicator">EN</span>
                 </button>
-                <a href="#download" class="btn btn-primary btn-sm" data-i18n="nav.getApp">Get the App</a>
+                <a href="#download" class="btn-brutal" data-i18n="nav.getApp">GET APP →</a>
             </div>
         </div>
     </nav>
 
-    <!-- Hero Section - The Hook -->
     <section class="hero">
-        <div class="hero-bg">
-            <div class="gradient-orb orb-1"></div>
-            <div class="gradient-orb orb-2"></div>
-            <div class="gradient-orb orb-3"></div>
-        </div>
-        <div class="container hero-content">
-            <div class="hero-badge">
-                <span class="badge-dot"></span>
-                <span data-i18n="hero.badge">For AI-Powered Developers</span>
-            </div>
+        <div class="hero-content">
+            <div class="hero-badge" data-i18n="hero.badge">FOR DEVELOPERS WHO USE AI</div>
             <h1 class="hero-title">
-                <span data-i18n="hero.title1">"Where was that code</span><br>
-                <span class="gradient-text" data-i18n="hero.title2">Claude wrote for me?"</span>
+                <span class="title-line" data-i18n="hero.title1">"WHERE WAS THAT CODE</span>
+                <span class="title-line title-accent" data-i18n="hero.title2">CLAUDE WROTE FOR ME?"</span>
             </h1>
-            <p class="hero-subtitle" data-i18n="hero.subtitle">
-                You've had 47 sessions this week. The solution you need is buried somewhere in conversation #23... or was it #31? Stop digging through JSONL files. Start finding what you need.
+            <p class="hero-subtitle">
+                <span data-i18n="hero.subtitle1">47 sessions this week. The solution is buried in #23... or #31?</span><br>
+                <strong data-i18n="hero.subtitle2">STOP DIGGING. START FINDING.</strong>
             </p>
             <div class="hero-cta">
-                <a href="#download" class="btn btn-primary btn-lg">
-                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="7 10 12 15 17 10"/>
-                        <line x1="12" y1="15" x2="12" y2="3"/>
-                    </svg>
-                    <span data-i18n="hero.cta1">Download Free</span>
+                <a href="#download" class="btn-brutal btn-primary" data-i18n="hero.cta1">
+                    ↓ DOWNLOAD FREE
                 </a>
-                <a href="#problem" class="btn btn-secondary btn-lg">
-                    <span data-i18n="hero.cta2">See the Problem</span>
-                    <svg class="btn-icon-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="12" y1="5" x2="12" y2="19"/>
-                        <polyline points="19 12 12 19 5 12"/>
-                    </svg>
+                <a href="#problem" class="btn-brutal btn-secondary" data-i18n="hero.cta2">
+                    SEE THE PROBLEM ↓
                 </a>
             </div>
-
-            <!-- Stats -->
             <div class="hero-stats">
-                <div class="stat-item">
+                <div class="stat-block">
                     <span class="stat-number">3</span>
-                    <span class="stat-label" data-i18n="hero.stat1">CLI Tools Supported</span>
+                    <span class="stat-label" data-i18n="hero.stat1">CLI TOOLS</span>
                 </div>
-                <div class="stat-divider"></div>
-                <div class="stat-item">
+                <div class="stat-divider">/</div>
+                <div class="stat-block">
                     <span class="stat-number">∞</span>
-                    <span class="stat-label" data-i18n="hero.stat2">Sessions Managed</span>
+                    <span class="stat-label" data-i18n="hero.stat2">SESSIONS</span>
                 </div>
-                <div class="stat-divider"></div>
-                <div class="stat-item">
+                <div class="stat-divider">/</div>
+                <div class="stat-block">
                     <span class="stat-number">0</span>
-                    <span class="stat-label" data-i18n="hero.stat3">Lost Conversations</span>
+                    <span class="stat-label" data-i18n="hero.stat3">LOST CONVOS</span>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Problem Section - Pain Points -->
     <section id="problem" class="problem-section">
         <div class="container">
             <div class="section-header">
-                <span class="section-badge red" data-i18n="problem.badge">The Problem</span>
-                <h2 class="section-title" data-i18n="problem.title">Sound familiar?</h2>
+                <span class="section-badge badge-red" data-i18n="problem.badge">THE PROBLEM</span>
+                <h2 class="section-title" data-i18n="problem.title">SOUND FAMILIAR?</h2>
             </div>
 
-            <div class="pain-points">
+            <div class="pain-grid">
                 <div class="pain-card">
-                    <div class="pain-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="11" cy="11" r="8"/>
-                            <path d="m21 21-4.35-4.35"/>
-                            <path d="M11 8v6M8 11h6"/>
-                        </svg>
-                    </div>
                     <div class="pain-number">01</div>
-                    <h3 data-i18n="problem.p1.title">"I know Claude solved this before..."</h3>
-                    <p data-i18n="problem.p1.desc">You remember the conversation but can't find it. Was it yesterday? Last week? Which project folder?</p>
-                    <div class="pain-scenario">
+                    <h3 data-i18n="problem.p1.title">"I KNOW CLAUDE SOLVED THIS..."</h3>
+                    <p data-i18n="problem.p1.desc">You remember the conversation but can't find it. Yesterday? Last week? Which folder?</p>
+                    <div class="pain-code">
                         <code>~/.claude/projects/*/sessions/*.jsonl</code>
-                        <span data-i18n="problem.p1.files">127 files, 2.3GB of conversations</span>
+                        <span class="pain-stat" data-i18n="problem.p1.stat">127 files • 2.3GB</span>
                     </div>
                 </div>
 
                 <div class="pain-card">
-                    <div class="pain-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
-                            <polyline points="14 2 14 8 20 8"/>
-                            <path d="M12 18v-6"/>
-                            <path d="m9 15 3 3 3-3"/>
-                        </svg>
-                    </div>
                     <div class="pain-number">02</div>
-                    <h3 data-i18n="problem.p2.title">"My sessions are everywhere"</h3>
-                    <p data-i18n="problem.p2.desc">Claude Code in one folder, OpenCode in another, Antigravity somewhere else. No unified view, no organization.</p>
-                    <div class="pain-visual">
-                        <div class="folder-tree">
-                            <div class="folder"><span class="folder-icon">📁</span> ~/.claude/</div>
-                            <div class="folder"><span class="folder-icon">📁</span> ~/.opencode/</div>
-                            <div class="folder"><span class="folder-icon">📁</span> ~/.antigravity/</div>
-                        </div>
+                    <h3 data-i18n="problem.p2.title">"MY SESSIONS ARE EVERYWHERE"</h3>
+                    <p data-i18n="problem.p2.desc">Claude Code here, OpenCode there, Antigravity somewhere else. No unified view.</p>
+                    <div class="folder-list">
+                        <div class="folder-item">📁 ~/.claude/</div>
+                        <div class="folder-item">📁 ~/.opencode/</div>
+                        <div class="folder-item">📁 ~/.antigravity/</div>
                     </div>
                 </div>
 
                 <div class="pain-card">
-                    <div class="pain-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M12 20h9"/>
-                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-                        </svg>
-                    </div>
                     <div class="pain-number">03</div>
-                    <h3 data-i18n="problem.p3.title">"What was this session about?"</h3>
-                    <p data-i18n="problem.p3.desc">Session names like "01JHHK9X2M..." tell you nothing. You open each one hoping it's the right one.</p>
-                    <div class="pain-visual">
-                        <div class="session-names">
-                            <div class="bad-name">01JHHK9X2MPQR5...</div>
-                            <div class="bad-name">01JHHKB3NWXY7Z...</div>
-                            <div class="bad-name">01JHHKD8KABC12...</div>
-                        </div>
+                    <h3 data-i18n="problem.p3.title">"WHAT WAS THIS SESSION?"</h3>
+                    <p data-i18n="problem.p3.desc">Session names like "01JHHK9X2M..." tell you nothing. Open each one hoping it's right.</p>
+                    <div class="bad-names">
+                        <span>01JHHK9X2MPQR5...</span>
+                        <span>01JHHKB3NWXY7Z...</span>
+                        <span>01JHHKD8KABC12...</span>
                     </div>
                 </div>
             </div>
 
             <div class="problem-summary">
-                <p data-i18n="problem.summary">
-                    Every day, developers lose <strong>15-30 minutes</strong> searching for past AI conversations. That's <strong>2+ hours per week</strong> of productivity lost.
-                </p>
+                <p><span data-i18n="problem.summary1">DEVELOPERS LOSE</span> <strong>15-30 MIN/DAY</strong> <span data-i18n="problem.summary2">SEARCHING FOR PAST AI CONVERSATIONS.</span></p>
+                <p><span data-i18n="problem.summary3">THAT'S</span> <strong>2+ HOURS/WEEK</strong> <span data-i18n="problem.summary4">OF PRODUCTIVITY GONE.</span></p>
             </div>
         </div>
     </section>
 
-    <!-- Solution Section -->
     <section id="solution" class="solution-section">
         <div class="container">
             <div class="section-header">
-                <span class="section-badge green" data-i18n="solution.badge">The Solution</span>
-                <h2 class="section-title" data-i18n="solution.title">CmdTrace brings order to chaos</h2>
-                <p class="section-subtitle" data-i18n="solution.subtitle">
-                    A native macOS app that understands how you work with AI coding assistants.
-                </p>
+                <span class="section-badge badge-green" data-i18n="solution.badge">THE SOLUTION</span>
+                <h2 class="section-title" data-i18n="solution.title">CMDTRACE BRINGS ORDER TO CHAOS</h2>
+                <p class="section-subtitle" data-i18n="solution.subtitle">A native macOS app that understands how you work with AI coding assistants.</p>
             </div>
 
-            <!-- Main App Screenshot -->
-            <div class="solution-showcase">
-                <div class="screenshot-container main-screenshot">
-                    <img src="screenshots/01-main-sessions.png"
-                         alt="CmdTrace main interface showing session list and conversation view"
-                         class="app-screenshot"
-                         loading="lazy">
-                    <div class="screenshot-placeholder" data-image="01">
-                        <span class="placeholder-number">01</span>
-                        <span class="placeholder-text">메인 화면 - 세션 목록 + 대화 내용</span>
+            <div class="screenshot-main">
+                <div class="screenshot-frame">
+                    <div class="frame-header">
+                        <span class="frame-dot"></span>
+                        <span class="frame-dot"></span>
+                        <span class="frame-dot"></span>
+                        <span class="frame-title">CmdTrace</span>
                     </div>
+                    <img src="screenshots/01-main-sessions.png" alt="CmdTrace main interface" loading="lazy">
                 </div>
             </div>
 
-            <!-- Key Benefits -->
             <div class="benefits-grid">
                 <div class="benefit-card">
-                    <div class="benefit-icon">🔍</div>
-                    <h4 data-i18n="solution.b1.title">Find in Seconds</h4>
-                    <p data-i18n="solution.b1.desc">Search by content, title, tag, or project. No more opening files one by one.</p>
+                    <span class="benefit-icon">🔍</span>
+                    <h4 data-i18n="solution.b1.title">FIND IN SECONDS</h4>
+                    <p data-i18n="solution.b1.desc">Search by content, title, tag, or project.</p>
                 </div>
                 <div class="benefit-card">
-                    <div class="benefit-icon">🏷️</div>
-                    <h4 data-i18n="solution.b2.title">Your Organization</h4>
-                    <p data-i18n="solution.b2.desc">Custom names, tags with bulk rename, favorites, and pins. Make sense of your sessions.</p>
+                    <span class="benefit-icon">🏷️</span>
+                    <h4 data-i18n="solution.b2.title">YOUR ORGANIZATION</h4>
+                    <p data-i18n="solution.b2.desc">Custom names, tags with bulk rename, favorites.</p>
                 </div>
                 <div class="benefit-card">
-                    <div class="benefit-icon">⚡</div>
-                    <h4 data-i18n="solution.b3.title">Instant Resume</h4>
-                    <p data-i18n="solution.b3.desc">Jump back into any session with one click. Terminal, iTerm2, or Warp.</p>
+                    <span class="benefit-icon">⚡</span>
+                    <h4 data-i18n="solution.b3.title">INSTANT RESUME</h4>
+                    <p data-i18n="solution.b3.desc">Jump back into any session with one click.</p>
                 </div>
                 <div class="benefit-card">
-                    <div class="benefit-icon">📊</div>
-                    <h4 data-i18n="solution.b4.title">Usage Insights</h4>
-                    <p data-i18n="solution.b4.desc">Track your AI usage, costs, and burn rate. Stay within plan limits.</p>
+                    <span class="benefit-icon">📊</span>
+                    <h4 data-i18n="solution.b4.title">USAGE INSIGHTS</h4>
+                    <p data-i18n="solution.b4.desc">Track your AI usage, costs, and burn rate.</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Features Deep Dive -->
     <section id="features" class="features-section">
         <div class="container">
             <div class="section-header">
-                <span class="section-badge" data-i18n="features.badge">Features</span>
-                <h2 class="section-title" data-i18n="features.title">Built for the way you work</h2>
+                <span class="section-badge" data-i18n="features.badge">FEATURES</span>
+                <h2 class="section-title" data-i18n="features.title">BUILT FOR HOW YOU WORK</h2>
             </div>
 
-            <!-- Feature 1: Search -->
-            <div class="feature-deep">
+            <div class="feature-block">
                 <div class="feature-content">
                     <div class="feature-tag" data-i18n="features.f1.tag">SEARCH</div>
-                    <h3 data-i18n="features.f1.title">Find anything, instantly</h3>
-                    <p data-i18n="features.f1.desc">
-                        Powerful search operators let you pinpoint exactly what you need. Combine them for laser-precise results.
-                    </p>
-                    <div class="search-examples">
-                        <div class="search-example">
+                    <h3 data-i18n="features.f1.title">FIND ANYTHING, INSTANTLY</h3>
+                    <p data-i18n="features.f1.desc">Powerful search operators for laser-precise results.</p>
+                    <div class="code-examples">
+                        <div class="code-line">
                             <code>content:authentication</code>
-                            <span data-i18n="features.f1.ex1">Search inside conversations</span>
+                            <span data-i18n="features.f1.ex1">→ Search inside conversations</span>
                         </div>
-                        <div class="search-example">
+                        <div class="code-line">
                             <code>tag:backend project:api</code>
-                            <span data-i18n="features.f1.ex2">Filter by tag and project</span>
+                            <span data-i18n="features.f1.ex2">→ Filter by tag and project</span>
                         </div>
-                        <div class="search-example">
+                        <div class="code-line">
                             <code>title:refactor date:today</code>
-                            <span data-i18n="features.f1.ex3">Find today's refactoring sessions</span>
+                            <span data-i18n="features.f1.ex3">→ Find today's refactoring</span>
                         </div>
                     </div>
                 </div>
                 <div class="feature-visual">
-                    <div class="screenshot-container feature-screenshot">
-                        <img src="screenshots/02-search.png"
-                             alt="CmdTrace search functionality with operators"
-                             class="app-screenshot"
-                             loading="lazy">
-                        <div class="screenshot-placeholder" data-image="02">
-                            <span class="placeholder-number">02</span>
-                            <span class="placeholder-text">검색 기능 - content: 연산자로 검색 중인 화면</span>
-                        </div>
+                    <div class="screenshot-frame small">
+                        <img src="screenshots/02-search.png" alt="Search feature" loading="lazy">
                     </div>
                 </div>
             </div>
 
-            <!-- Feature 2: CLI Support -->
-            <div class="feature-deep reverse">
+            <div class="feature-block reverse">
                 <div class="feature-content">
                     <div class="feature-tag" data-i18n="features.f2.tag">MULTI-CLI</div>
-                    <h3 data-i18n="features.f2.title">All your AI tools, one place</h3>
-                    <p data-i18n="features.f2.desc">
-                        Switch between Claude Code, OpenCode, and Antigravity instantly. Sessions are pre-cached for zero wait time.
-                    </p>
+                    <h3 data-i18n="features.f2.title">ALL YOUR AI TOOLS, ONE PLACE</h3>
+                    <p data-i18n="features.f2.desc">Switch between Claude Code, OpenCode, and Antigravity instantly.</p>
                     <div class="cli-list">
                         <div class="cli-item">
-                            <div class="cli-badge claude">Claude Code</div>
-                            <span class="cli-path">~/.claude/projects/*/sessions/</span>
+                            <span class="cli-badge cli-claude">CLAUDE CODE</span>
+                            <code>~/.claude/projects/*/sessions/</code>
                         </div>
                         <div class="cli-item">
-                            <div class="cli-badge opencode">OpenCode</div>
-                            <span class="cli-path">~/.opencode/sessions/</span>
+                            <span class="cli-badge cli-opencode">OPENCODE</span>
+                            <code>~/.opencode/sessions/</code>
                         </div>
                         <div class="cli-item">
-                            <div class="cli-badge antigravity">Antigravity</div>
-                            <span class="cli-path">~/.antigravity/sessions/</span>
+                            <span class="cli-badge cli-antigravity">ANTIGRAVITY</span>
+                            <code>~/.antigravity/sessions/</code>
                         </div>
                     </div>
                 </div>
                 <div class="feature-visual">
-                    <div class="screenshot-container feature-screenshot">
-                        <img src="screenshots/03-cli-switch.png"
-                             alt="CmdTrace CLI switcher showing multiple AI tools"
-                             class="app-screenshot"
-                             loading="lazy">
-                        <div class="screenshot-placeholder" data-image="03">
-                            <span class="placeholder-number">03</span>
-                            <span class="placeholder-text">CLI 전환 - Claude Code/OpenCode 선택 화면</span>
-                        </div>
+                    <div class="screenshot-frame small">
+                        <img src="screenshots/03-cli-switch.png" alt="CLI switcher" loading="lazy">
                     </div>
                 </div>
             </div>
 
-            <!-- Feature 3: Dashboard -->
-            <div class="feature-deep">
+            <div class="feature-block">
                 <div class="feature-content">
                     <div class="feature-tag" data-i18n="features.f3.tag">MONITORING</div>
-                    <h3 data-i18n="features.f3.title">Know your usage, stay in control</h3>
-                    <p data-i18n="features.f3.desc">
-                        Real-time monitoring with burn rate predictions. Never hit your plan limit unexpectedly again.
-                    </p>
+                    <h3 data-i18n="features.f3.title">KNOW YOUR USAGE</h3>
+                    <p data-i18n="features.f3.desc">Real-time monitoring with burn rate predictions.</p>
                     <ul class="feature-list">
-                        <li>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                            <span data-i18n="features.f3.l1">Token usage by model (Opus, Sonnet, Haiku)</span>
-                        </li>
-                        <li>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                            <span data-i18n="features.f3.l2">Cost tracking with burn rate projection</span>
-                        </li>
-                        <li>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                            <span data-i18n="features.f3.l3">Plan limits for Pro, Max5, Max20</span>
-                        </li>
-                        <li>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                            <span data-i18n="features.f3.l4">Integrates with ccusage & claude-monitor</span>
-                        </li>
+                        <li data-i18n="features.f3.l1">✓ Token usage by model (Opus, Sonnet, Haiku)</li>
+                        <li data-i18n="features.f3.l2">✓ Cost tracking with burn rate projection</li>
+                        <li data-i18n="features.f3.l3">✓ Plan limits for Pro, Max5, Max20</li>
+                        <li data-i18n="features.f3.l4">✓ Integrates with ccusage & claude-monitor</li>
                     </ul>
                 </div>
                 <div class="feature-visual">
-                    <div class="screenshot-container feature-screenshot">
-                        <img src="screenshots/04-dashboard.png"
-                             alt="CmdTrace dashboard showing usage statistics"
-                             class="app-screenshot"
-                             loading="lazy">
-                        <div class="screenshot-placeholder" data-image="04">
-                            <span class="placeholder-number">04</span>
-                            <span class="placeholder-text">대시보드 - 사용량 통계, 소진율 그래프</span>
-                        </div>
+                    <div class="screenshot-frame small">
+                        <img src="screenshots/04-dashboard.png" alt="Dashboard" loading="lazy">
                     </div>
                 </div>
             </div>
 
-            <!-- Feature 4: AI Summary -->
-            <div class="feature-deep reverse">
+            <div class="feature-block reverse">
                 <div class="feature-content">
                     <div class="feature-tag" data-i18n="features.f4.tag">AI POWERED</div>
-                    <h3 data-i18n="features.f4.title">AI-generated summaries</h3>
-                    <p data-i18n="features.f4.desc">
-                        Let AI analyze your sessions and generate meaningful titles and summaries. Never struggle with cryptic session names again.
-                    </p>
+                    <h3 data-i18n="features.f4.title">AI-GENERATED SUMMARIES</h3>
+                    <p data-i18n="features.f4.desc">Let AI analyze sessions and generate meaningful titles.</p>
                     <ul class="feature-list">
-                        <li>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                            <span data-i18n="features.f4.l1">Auto-generate session titles from content</span>
-                        </li>
-                        <li>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                            <span data-i18n="features.f4.l2">Smart summaries for quick context</span>
-                        </li>
-                        <li>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                            <span data-i18n="features.f4.l3">Multiple AI providers supported</span>
-                        </li>
+                        <li data-i18n="features.f4.l1">✓ Auto-generate session titles from content</li>
+                        <li data-i18n="features.f4.l2">✓ Smart summaries for quick context</li>
+                        <li data-i18n="features.f4.l3">✓ Multiple AI providers supported</li>
                     </ul>
                 </div>
                 <div class="feature-visual">
-                    <div class="screenshot-container feature-screenshot">
-                        <img src="screenshots/06-ai-summary.gif"
-                             alt="CmdTrace AI summary generation feature"
-                             class="app-screenshot"
-                             loading="lazy">
-                        <div class="screenshot-placeholder" data-image="06">
-                            <span class="placeholder-number">06</span>
-                            <span class="placeholder-text">AI 요약 - 세션 제목/요약 자동 생성</span>
-                        </div>
+                    <div class="screenshot-frame small">
+                        <img src="screenshots/06-ai-summary.gif" alt="AI summary" loading="lazy">
                     </div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Workflow Section -->
     <section class="workflow-section">
         <div class="container">
             <div class="section-header">
-                <span class="section-badge" data-i18n="workflow.badge">How It Works</span>
-                <h2 class="section-title" data-i18n="workflow.title">Get started in 3 steps</h2>
+                <span class="section-badge" data-i18n="workflow.badge">HOW IT WORKS</span>
+                <h2 class="section-title" data-i18n="workflow.title">3 STEPS</h2>
             </div>
 
             <div class="workflow-steps">
                 <div class="workflow-step">
                     <div class="step-number">1</div>
-                    <div class="step-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                            <polyline points="7 10 12 15 17 10"/>
-                            <line x1="12" y1="15" x2="12" y2="3"/>
-                        </svg>
-                    </div>
-                    <h4 data-i18n="workflow.s1.title">Download & Launch</h4>
-                    <p data-i18n="workflow.s1.desc">Install CmdTrace. It automatically finds your AI session folders.</p>
+                    <h4 data-i18n="workflow.s1.title">DOWNLOAD & LAUNCH</h4>
+                    <p data-i18n="workflow.s1.desc">Install CmdTrace. It auto-finds your AI session folders.</p>
                 </div>
-                <div class="workflow-connector">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M5 12h14M12 5l7 7-7 7"/>
-                    </svg>
-                </div>
+                <div class="workflow-arrow">→</div>
                 <div class="workflow-step">
                     <div class="step-number">2</div>
-                    <div class="step-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                        </svg>
-                    </div>
-                    <h4 data-i18n="workflow.s2.title">Organize Your Way</h4>
-                    <p data-i18n="workflow.s2.desc">Add names, tags, and favorites. AI can auto-generate titles.</p>
+                    <h4 data-i18n="workflow.s2.title">ORGANIZE YOUR WAY</h4>
+                    <p data-i18n="workflow.s2.desc">Add names, tags, favorites. AI can auto-generate titles.</p>
                 </div>
-                <div class="workflow-connector">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M5 12h14M12 5l7 7-7 7"/>
-                    </svg>
-                </div>
+                <div class="workflow-arrow">→</div>
                 <div class="workflow-step">
                     <div class="step-number">3</div>
-                    <div class="step-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="11" cy="11" r="8"/>
-                            <path d="m21 21-4.35-4.35"/>
-                        </svg>
-                    </div>
-                    <h4 data-i18n="workflow.s3.title">Find & Resume</h4>
-                    <p data-i18n="workflow.s3.desc">Search, browse, and jump back into any session instantly.</p>
+                    <h4 data-i18n="workflow.s3.title">FIND & RESUME</h4>
+                    <p data-i18n="workflow.s3.desc">Search, browse, jump back into any session instantly.</p>
                 </div>
             </div>
 
-            <!-- Resume Feature Screenshot -->
             <div class="workflow-demo">
-                <div class="screenshot-container resume-screenshot">
-                    <img src="screenshots/05-resume.gif"
-                         alt="CmdTrace resume session feature in action"
-                         class="app-screenshot"
-                         loading="lazy">
-                    <div class="screenshot-placeholder" data-image="05">
-                        <span class="placeholder-number">05</span>
-                        <span class="placeholder-text">Resume 기능 GIF - 세션 재개 버튼 클릭 → 터미널 열림</span>
-                    </div>
+                <div class="screenshot-frame">
+                    <img src="screenshots/05-resume.gif" alt="Resume session" loading="lazy">
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Download Section -->
     <section id="download" class="download-section">
         <div class="container">
             <div class="download-card">
-                <div class="download-glow"></div>
-                <div class="download-content">
-                    <div class="download-icon">
-                        <img src="icon.png" alt="CmdTrace">
-                    </div>
-                    <h2 data-i18n="download.title">Stop losing conversations.<br>Start finding them.</h2>
-                    <p data-i18n="download.subtitle">CmdTrace is free and open source. Your data stays on your machine.</p>
+                <div class="download-icon">
+                    <img src="icon-transparent.png" alt="CmdTrace">
+                </div>
+                <h2 data-i18n="download.title">STOP LOSING CONVERSATIONS.<br>START FINDING THEM.</h2>
+                <p class="download-subtitle" data-i18n="download.subtitle">Free and open source. Your data stays on your machine.</p>
 
-                    <div class="download-meta">
-                        <span class="version">v2.4.1</span>
-                        <span class="separator">•</span>
-                        <span data-i18n="download.requires">macOS 14+</span>
-                        <span class="separator">•</span>
-                        <span data-i18n="download.native">Native SwiftUI</span>
-                    </div>
+                <div class="download-meta">
+                    <span class="version-badge">v2.4.1</span>
+                    <span>•</span>
+                    <span>macOS 14+</span>
+                    <span>•</span>
+                    <span>Native SwiftUI</span>
+                </div>
 
-                    <div class="download-buttons">
-                        <a href="https://github.com/johnfkoo951/CmdTrace/releases/download/v2.4.1/CmdTrace-2.4.1-arm64.dmg" class="btn btn-primary btn-xl download-btn">
-                            <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
-                            </svg>
-                            <span data-i18n="download.btn.arm">Apple Silicon</span>
-                        </a>
-                        <a href="https://github.com/johnfkoo951/CmdTrace/releases/download/v2.4.1/CmdTrace-2.4.1-x86_64.dmg" class="btn btn-secondary btn-xl download-btn">
-                            <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
-                            </svg>
-                            <span data-i18n="download.btn.intel">Intel Mac</span>
-                        </a>
-                    </div>
-                    <p class="download-size" data-i18n="download.size">6.6 MB each • DMG installer</p>
+                <div class="download-buttons">
+                    <a href="https://github.com/johnfkoo951/CmdTrace/releases/download/v2.4.1/CmdTrace-2.4.1-arm64.dmg" class="btn-brutal btn-download" data-i18n="download.btn.arm">
+                         APPLE SILICON
+                    </a>
+                    <a href="https://github.com/johnfkoo951/CmdTrace/releases/download/v2.4.1/CmdTrace-2.4.1-x86_64.dmg" class="btn-brutal btn-download btn-secondary" data-i18n="download.btn.intel">
+                         INTEL MAC
+                    </a>
+                </div>
+                <p class="download-size" data-i18n="download.size">6.6 MB each • DMG installer</p>
 
-                    <div class="notices-container">
-                        <div class="gatekeeper-notice">
-                            <div class="notice-icon">⚠️</div>
-                            <div class="notice-content">
-                                <p class="notice-title" data-i18n="download.gatekeeper.title">"App is damaged" warning?</p>
-                                <p class="notice-desc" data-i18n="download.gatekeeper.desc">This is macOS Gatekeeper security. Run this in Terminal:</p>
-                                <code class="notice-command">xattr -cr /Applications/CmdTrace.app</code>
-                            </div>
-                        </div>
-
-                        <div class="gatekeeper-notice permissions-notice">
-                            <div class="notice-icon">🔐</div>
-                            <div class="notice-content">
-                                <p class="notice-title" data-i18n="download.permissions.title">Resume not working?</p>
-                                <p class="notice-desc" data-i18n="download.permissions.desc">Grant permissions in System Settings → Privacy & Security:</p>
-                                <div class="permissions-list">
-                                    <span data-i18n="download.permissions.auto">Automation</span>
-                                    <span class="permission-arrow">→</span>
-                                    <span>CmdTrace → Terminal/iTerm ✓</span>
-                                </div>
-                                <div class="permissions-list">
-                                    <span data-i18n="download.permissions.access">Accessibility</span>
-                                    <span class="permission-arrow">→</span>
-                                    <span data-i18n="download.permissions.warp">CmdTrace (for Warp)</span>
-                                </div>
-                            </div>
+                <div class="notice-box">
+                    <div class="notice-item">
+                        <span class="notice-icon">⚠️</span>
+                        <div class="notice-content">
+                            <strong data-i18n="download.notice1.title">"App is damaged" warning?</strong>
+                            <p data-i18n="download.notice1.desc">Run this command in Terminal:</p>
+                            <div class="notice-code"><code>xattr -cr /Applications/CmdTrace.app</code></div>
                         </div>
                     </div>
-
-                    <div class="build-source">
-                        <span data-i18n="download.build">Build from source:</span>
-                        <div class="code-snippet">
-                            <code>git clone https://github.com/johnfkoo951/CmdTrace</code>
-                            <code>cd CmdTrace && ./build-app.sh</code>
+                    <div class="notice-item">
+                        <span class="notice-icon">🔐</span>
+                        <div class="notice-content">
+                            <strong data-i18n="download.notice2.title">Resume not working?</strong>
+                            <p data-i18n="download.notice2.desc">System Settings → Privacy → Automation → CmdTrace → Terminal ✓</p>
                         </div>
+                    </div>
+                </div>
+
+                <div class="build-source">
+                    <span data-i18n="download.build">BUILD FROM SOURCE:</span>
+                    <div class="code-block">
+                        <code>git clone https://github.com/johnfkoo951/CmdTrace</code>
+                        <code>cd CmdTrace && ./build-app.sh</code>
                     </div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Footer -->
     <footer class="footer">
         <div class="container">
             <div class="footer-content">
                 <div class="footer-brand">
-                    <img src="icon.png" alt="CmdTrace" class="footer-logo">
-                    <div class="footer-brand-text">
-                        <span class="brand-name">CmdTrace</span>
-                        <span class="brand-tagline" data-i18n="footer.tagline">AI Session Viewer for macOS</span>
-                    </div>
+                    <span class="logo-bracket">[</span>
+                    <span class="logo-text">CMD</span>
+                    <span class="logo-accent">TRACE</span>
+                    <span class="logo-bracket">]</span>
                 </div>
                 <div class="footer-links">
                     <a href="https://github.com/johnfkoo951/CmdTrace" target="_blank" rel="noopener">
-                        <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
                             <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
                         </svg>
-                        GitHub
+                        GITHUB
                     </a>
                     <a href="https://x.com/YohanKoo" target="_blank" rel="noopener">
-                        <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
                             <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
                         </svg>
                         X
                     </a>
-                </div>
-                <div class="footer-copyright">
-                    <span data-i18n="footer.made">Made with</span>
-                    <svg viewBox="0 0 24 24" fill="#ef4444" width="16" height="16">
-                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                    </svg>
-                    <span data-i18n="footer.swiftui">in SwiftUI</span>
+                    <a href="https://www.threads.net/@yohan_koo" target="_blank" rel="noopener">
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
+                            <path d="M12.186 24h-.007c-3.581-.024-6.334-1.205-8.184-3.509C2.35 18.44 1.5 15.586 1.472 12.01v-.017c.03-3.579.879-6.43 2.525-8.482C5.845 1.205 8.6.024 12.18 0h.014c2.746.02 5.043.725 6.826 2.098 1.677 1.29 2.858 3.13 3.509 5.467l-2.04.569c-1.104-3.96-3.898-5.984-8.304-6.015-2.91.022-5.11.936-6.54 2.717C4.307 6.504 3.616 8.914 3.59 12c.025 3.086.718 5.496 2.057 7.164 1.43 1.783 3.631 2.698 6.54 2.717 2.623-.02 4.358-.631 5.8-2.045 1.647-1.613 1.618-3.593 1.09-4.798-.31-.71-.873-1.3-1.634-1.75-.192 1.352-.622 2.446-1.284 3.272-.886 1.102-2.14 1.704-3.73 1.79-1.202.065-2.361-.218-3.259-.801-1.063-.689-1.685-1.74-1.752-2.96-.065-1.182.408-2.256 1.333-3.022.812-.672 1.927-1.073 3.136-1.146 1.16-.07 2.333.092 3.394.472.08-.397.106-.811.078-1.228-.168-2.45-1.848-3.758-4.727-3.68-1.669.046-3.058.622-3.897 1.617l-1.525-1.323c1.175-1.395 3.03-2.168 5.368-2.233 3.826-.104 6.336 1.902 6.583 5.263.034.475.018.937-.047 1.382.905.481 1.669 1.118 2.24 1.899.932 1.276 1.334 2.89 1.163 4.67-.257 2.666-1.503 4.623-3.705 5.821C17.87 23.455 15.383 24 12.186 24zm.102-7.942c-.09.005-.178.01-.265.018-1.032.07-2.327.484-2.634 1.737-.154.628.007 1.142.467 1.486.478.358 1.155.523 1.904.487 1.104-.053 1.94-.453 2.488-1.19.397-.534.635-1.245.713-2.132-.888-.282-1.806-.425-2.673-.406z"/>
+                        </svg>
+                        THREADS
+                    </a>
+                    <a href="https://www.youtube.com/@cmdspace" target="_blank" rel="noopener">
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
+                            <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                        </svg>
+                        YOUTUBE
+                    </a>
+                    <a href="https://litt.ly/cmds" target="_blank" rel="noopener">
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
+                            <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8l8 5 8-5v10zm-8-7L4 6h16l-8 5z"/>
+                        </svg>
+                        CONTACT
+                    </a>
                 </div>
             </div>
         </div>
     </footer>
 
-    <script src="script.js"></script>
+    <script>
+        const translations = {
+            en: {
+                'nav.problem': 'PROBLEM',
+                'nav.solution': 'SOLUTION',
+                'nav.features': 'FEATURES',
+                'nav.download': 'DOWNLOAD',
+                'nav.getApp': 'GET APP →',
+                'hero.badge': 'FOR DEVELOPERS WHO USE AI',
+                'hero.title1': '"WHERE WAS THAT CODE',
+                'hero.title2': 'CLAUDE WROTE FOR ME?"',
+                'hero.subtitle1': '47 sessions this week. The solution is buried in #23... or #31?',
+                'hero.subtitle2': 'STOP DIGGING. START FINDING.',
+                'hero.cta1': '↓ DOWNLOAD FREE',
+                'hero.cta2': 'SEE THE PROBLEM ↓',
+                'hero.stat1': 'CLI TOOLS',
+                'hero.stat2': 'SESSIONS',
+                'hero.stat3': 'LOST CONVOS',
+                'problem.badge': 'THE PROBLEM',
+                'problem.title': 'SOUND FAMILIAR?',
+                'problem.p1.title': '"I KNOW CLAUDE SOLVED THIS..."',
+                'problem.p1.desc': "You remember the conversation but can't find it. Yesterday? Last week? Which folder?",
+                'problem.p1.stat': '127 files • 2.3GB',
+                'problem.p2.title': '"MY SESSIONS ARE EVERYWHERE"',
+                'problem.p2.desc': 'Claude Code here, OpenCode there, Antigravity somewhere else. No unified view.',
+                'problem.p3.title': '"WHAT WAS THIS SESSION?"',
+                'problem.p3.desc': 'Session names like "01JHHK9X2M..." tell you nothing. Open each one hoping it\'s right.',
+                'problem.summary1': 'DEVELOPERS LOSE',
+                'problem.summary2': 'SEARCHING FOR PAST AI CONVERSATIONS.',
+                'problem.summary3': "THAT'S",
+                'problem.summary4': 'OF PRODUCTIVITY GONE.',
+                'solution.badge': 'THE SOLUTION',
+                'solution.title': 'CMDTRACE BRINGS ORDER TO CHAOS',
+                'solution.subtitle': 'A native macOS app that understands how you work with AI coding assistants.',
+                'solution.b1.title': 'FIND IN SECONDS',
+                'solution.b1.desc': 'Search by content, title, tag, or project.',
+                'solution.b2.title': 'YOUR ORGANIZATION',
+                'solution.b2.desc': 'Custom names, tags with bulk rename, favorites.',
+                'solution.b3.title': 'INSTANT RESUME',
+                'solution.b3.desc': 'Jump back into any session with one click.',
+                'solution.b4.title': 'USAGE INSIGHTS',
+                'solution.b4.desc': 'Track your AI usage, costs, and burn rate.',
+                'features.badge': 'FEATURES',
+                'features.title': 'BUILT FOR HOW YOU WORK',
+                'features.f1.tag': 'SEARCH',
+                'features.f1.title': 'FIND ANYTHING, INSTANTLY',
+                'features.f1.desc': 'Powerful search operators for laser-precise results.',
+                'features.f1.ex1': '→ Search inside conversations',
+                'features.f1.ex2': '→ Filter by tag and project',
+                'features.f1.ex3': "→ Find today's refactoring",
+                'features.f2.tag': 'MULTI-CLI',
+                'features.f2.title': 'ALL YOUR AI TOOLS, ONE PLACE',
+                'features.f2.desc': 'Switch between Claude Code, OpenCode, and Antigravity instantly.',
+                'features.f3.tag': 'MONITORING',
+                'features.f3.title': 'KNOW YOUR USAGE',
+                'features.f3.desc': 'Real-time monitoring with burn rate predictions.',
+                'features.f3.l1': '✓ Token usage by model (Opus, Sonnet, Haiku)',
+                'features.f3.l2': '✓ Cost tracking with burn rate projection',
+                'features.f3.l3': '✓ Plan limits for Pro, Max5, Max20',
+                'features.f3.l4': '✓ Integrates with ccusage & claude-monitor',
+                'features.f4.tag': 'AI POWERED',
+                'features.f4.title': 'AI-GENERATED SUMMARIES',
+                'features.f4.desc': 'Let AI analyze sessions and generate meaningful titles.',
+                'features.f4.l1': '✓ Auto-generate session titles from content',
+                'features.f4.l2': '✓ Smart summaries for quick context',
+                'features.f4.l3': '✓ Multiple AI providers supported',
+                'workflow.badge': 'HOW IT WORKS',
+                'workflow.title': '3 STEPS',
+                'workflow.s1.title': 'DOWNLOAD & LAUNCH',
+                'workflow.s1.desc': 'Install CmdTrace. It auto-finds your AI session folders.',
+                'workflow.s2.title': 'ORGANIZE YOUR WAY',
+                'workflow.s2.desc': 'Add names, tags, favorites. AI can auto-generate titles.',
+                'workflow.s3.title': 'FIND & RESUME',
+                'workflow.s3.desc': 'Search, browse, jump back into any session instantly.',
+                'download.title': 'STOP LOSING CONVERSATIONS.<br>START FINDING THEM.',
+                'download.subtitle': 'Free and open source. Your data stays on your machine.',
+                'download.btn.arm': ' APPLE SILICON',
+                'download.btn.intel': ' INTEL MAC',
+                'download.size': '6.6 MB each • DMG installer',
+                'download.notice1.title': '"App is damaged" warning?',
+                'download.notice1.desc': 'Run:',
+                'download.notice2.title': 'Resume not working?',
+                'download.notice2.desc': 'System Settings → Privacy → Automation → CmdTrace → Terminal ✓',
+                'download.build': 'BUILD FROM SOURCE:'
+            },
+            ko: {
+                'nav.problem': '문제',
+                'nav.solution': '솔루션',
+                'nav.features': '기능',
+                'nav.download': '다운로드',
+                'nav.getApp': '앱 받기 →',
+                'hero.badge': 'AI를 사용하는 개발자를 위한',
+                'hero.title1': '"CLAUDE가 짜준 그 코드',
+                'hero.title2': '어디 있더라?"',
+                'hero.subtitle1': '이번 주만 47개 세션. 해결책은 #23에... 아니 #31이었나?',
+                'hero.subtitle2': '뒤지지 말고, 찾으세요.',
+                'hero.cta1': '↓ 무료 다운로드',
+                'hero.cta2': '문제 보기 ↓',
+                'hero.stat1': 'CLI 도구',
+                'hero.stat2': '세션',
+                'hero.stat3': '잃어버린 대화',
+                'problem.badge': '문제점',
+                'problem.title': '익숙한 상황이죠?',
+                'problem.p1.title': '"CLAUDE가 이거 해결했었는데..."',
+                'problem.p1.desc': '대화는 기억나는데 못 찾겠어요. 어제? 지난주? 어느 폴더?',
+                'problem.p1.stat': '127개 파일 • 2.3GB',
+                'problem.p2.title': '"세션이 여기저기 흩어져 있어"',
+                'problem.p2.desc': 'Claude Code는 여기, OpenCode는 저기, Antigravity는 또 다른 곳. 통합 뷰가 없어요.',
+                'problem.p3.title': '"이 세션이 뭐였지?"',
+                'problem.p3.desc': '"01JHHK9X2M..." 같은 세션 이름은 아무 정보도 안 줘요. 하나씩 열어보며 찾아야 해요.',
+                'problem.summary1': '개발자들은 매일',
+                'problem.summary2': '과거 AI 대화를 찾느라 시간을 낭비합니다.',
+                'problem.summary3': '주당',
+                'problem.summary4': '이상의 생산성 손실.',
+                'solution.badge': '솔루션',
+                'solution.title': 'CMDTRACE가 혼란을 정리합니다',
+                'solution.subtitle': 'AI 코딩 어시스턴트와 함께 일하는 방식을 이해하는 네이티브 macOS 앱.',
+                'solution.b1.title': '몇 초 만에 검색',
+                'solution.b1.desc': '내용, 제목, 태그, 프로젝트로 검색.',
+                'solution.b2.title': '나만의 정리 방식',
+                'solution.b2.desc': '커스텀 이름, 일괄 이름 변경 태그, 즐겨찾기.',
+                'solution.b3.title': '즉시 재개',
+                'solution.b3.desc': '원클릭으로 어떤 세션이든 바로 재개.',
+                'solution.b4.title': '사용량 인사이트',
+                'solution.b4.desc': 'AI 사용량, 비용, 소진율 추적.',
+                'features.badge': '기능',
+                'features.title': '당신의 워크플로우에 맞게',
+                'features.f1.tag': '검색',
+                'features.f1.title': '뭐든 즉시 찾기',
+                'features.f1.desc': '강력한 검색 연산자로 정확한 결과.',
+                'features.f1.ex1': '→ 대화 내용 검색',
+                'features.f1.ex2': '→ 태그와 프로젝트로 필터',
+                'features.f1.ex3': '→ 오늘의 리팩토링 찾기',
+                'features.f2.tag': '멀티 CLI',
+                'features.f2.title': '모든 AI 도구를 한곳에',
+                'features.f2.desc': 'Claude Code, OpenCode, Antigravity 간 즉시 전환.',
+                'features.f3.tag': '모니터링',
+                'features.f3.title': '사용량 파악',
+                'features.f3.desc': '소진율 예측과 실시간 모니터링.',
+                'features.f3.l1': '✓ 모델별 토큰 사용량 (Opus, Sonnet, Haiku)',
+                'features.f3.l2': '✓ 소진율 예측 비용 추적',
+                'features.f3.l3': '✓ Pro, Max5, Max20 플랜 한도',
+                'features.f3.l4': '✓ ccusage & claude-monitor 연동',
+                'features.f4.tag': 'AI 기능',
+                'features.f4.title': 'AI 생성 요약',
+                'features.f4.desc': 'AI가 세션을 분석하고 의미 있는 제목을 생성.',
+                'features.f4.l1': '✓ 내용으로 세션 제목 자동 생성',
+                'features.f4.l2': '✓ 빠른 파악을 위한 스마트 요약',
+                'features.f4.l3': '✓ 다양한 AI 제공자 지원',
+                'workflow.badge': '사용 방법',
+                'workflow.title': '3단계',
+                'workflow.s1.title': '다운로드 & 실행',
+                'workflow.s1.desc': 'CmdTrace 설치. AI 세션 폴더를 자동으로 찾음.',
+                'workflow.s2.title': '나만의 방식으로 정리',
+                'workflow.s2.desc': '이름, 태그, 즐겨찾기 추가. AI가 제목 자동 생성.',
+                'workflow.s3.title': '찾고 & 재개',
+                'workflow.s3.desc': '검색, 탐색, 어떤 세션이든 즉시 재개.',
+                'download.title': '대화를 잃지 마세요.<br>찾으세요.',
+                'download.subtitle': '무료 오픈소스. 데이터는 당신의 기기에 저장됩니다.',
+                'download.btn.arm': ' 애플 실리콘',
+                'download.btn.intel': ' 인텔 맥',
+                'download.size': '각 6.6 MB • DMG 설치 파일',
+                'download.notice1.title': '"앱이 손상됨" 경고?',
+                'download.notice1.desc': '터미널에서 다음 명령어를 실행하세요:',
+                'download.notice2.title': '재개가 안 되나요?',
+                'download.notice2.desc': '시스템 설정 → 개인 정보 보호 → 자동화 → CmdTrace → 터미널 ✓',
+                'download.build': '소스에서 빌드:'
+            }
+        };
+
+        function toggleLanguage() {
+            const html = document.documentElement;
+            const currentLang = html.getAttribute('data-lang') || 'en';
+            const newLang = currentLang === 'en' ? 'ko' : 'en';
+            
+            html.setAttribute('data-lang', newLang);
+            document.querySelector('.lang-indicator').textContent = newLang.toUpperCase();
+            
+            applyTranslations(newLang);
+            localStorage.setItem('cmdtrace-lang', newLang);
+        }
+
+        function applyTranslations(lang) {
+            const trans = translations[lang];
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (trans[key]) {
+                    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+                        el.placeholder = trans[key];
+                    } else {
+                        el.innerHTML = trans[key];
+                    }
+                }
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedLang = localStorage.getItem('cmdtrace-lang') || 'en';
+            document.documentElement.setAttribute('data-lang', savedLang);
+            document.querySelector('.lang-indicator').textContent = savedLang.toUpperCase();
+            applyTranslations(savedLang);
+        });
+    </script>
 </body>
 </html>

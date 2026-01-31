@@ -9,26 +9,19 @@ struct ContentView: View {
         NavigationSplitView {
             SidebarView()
         } detail: {
-            ZStack {
-                SessionDetailView()
-                    .opacity(appState.selectedTab == .sessions ? 1 : 0)
-                    .allowsHitTesting(appState.selectedTab == .sessions)
-                
-                ProjectsView()
-                    .opacity(appState.selectedTab == .projects ? 1 : 0)
-                    .allowsHitTesting(appState.selectedTab == .projects)
-                
-                DashboardView()
-                    .opacity(appState.selectedTab == .dashboard ? 1 : 0)
-                    .allowsHitTesting(appState.selectedTab == .dashboard)
-                
-                ConfigurationView()
-                    .opacity(appState.selectedTab == .configuration ? 1 : 0)
-                    .allowsHitTesting(appState.selectedTab == .configuration)
-                
-                InteractionView()
-                    .opacity(appState.selectedTab == .interaction ? 1 : 0)
-                    .allowsHitTesting(appState.selectedTab == .interaction)
+            Group {
+                switch appState.selectedTab {
+                case .sessions:
+                    SessionDetailView()
+                case .projects:
+                    ProjectsView()
+                case .dashboard:
+                    DashboardView()
+                case .configuration:
+                    ConfigurationView()
+                case .interaction:
+                    InteractionView()
+                }
             }
             .inspector(isPresented: $state.showInspector) {
                 InspectorContent()

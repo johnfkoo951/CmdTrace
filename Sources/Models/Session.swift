@@ -1,5 +1,28 @@
 import Foundation
 
+private enum SessionDateFormatters {
+    static let time: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        return f
+    }()
+    static let shortDate: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "M/d"
+        return f
+    }()
+    static let dateGroup: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "MMM d"
+        return f
+    }()
+    static let relative: RelativeDateTimeFormatter = {
+        let f = RelativeDateTimeFormatter()
+        f.unitsStyle = .abbreviated
+        return f
+    }()
+}
+
 struct Session: Identifiable, Codable, Hashable {
     let id: String
     let title: String
@@ -22,9 +45,7 @@ struct Session: Identifiable, Codable, Hashable {
     }
     
     var relativeTime: String {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
-        return formatter.localizedString(for: lastActivity, relativeTo: Date())
+        SessionDateFormatters.relative.localizedString(for: lastActivity, relativeTo: Date())
     }
     
     var duration: String? {
@@ -46,16 +67,12 @@ struct Session: Identifiable, Codable, Hashable {
     }
     
     var lastMessageTime: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        return formatter.string(from: lastActivity)
+        SessionDateFormatters.time.string(from: lastActivity)
     }
     
     var startTime: String? {
         guard let start = firstTimestamp else { return nil }
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        return formatter.string(from: start)
+        return SessionDateFormatters.time.string(from: start)
     }
     
     /// Date string for grouping (e.g., "Today", "Yesterday", "Jan 12")
@@ -66,17 +83,12 @@ struct Session: Identifiable, Codable, Hashable {
         } else if calendar.isDateInYesterday(lastActivity) {
             return "Yesterday"
         } else {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "MMM d"
-            return formatter.string(from: lastActivity)
+            return SessionDateFormatters.dateGroup.string(from: lastActivity)
         }
     }
     
-    /// Short date for display (e.g., "1/12")
     var shortDate: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "M/d"
-        return formatter.string(from: lastActivity)
+        SessionDateFormatters.shortDate.string(from: lastActivity)
     }
 
     /// Session ID for resume command (without project folder prefix)

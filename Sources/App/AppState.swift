@@ -300,6 +300,7 @@ final class AppState {
     
     private let sessionService = SessionService()
     private let dataURL: URL
+    private let persistence: PersistenceManager
     
     var cloudSyncStatus: CloudSyncService.SyncStatus = .idle
     var lastCloudSyncDate: Date?
@@ -309,6 +310,7 @@ final class AppState {
         let appDir = appSupport.appendingPathComponent("CmdTrace")
         try? FileManager.default.createDirectory(at: appDir, withIntermediateDirectories: true)
         dataURL = appDir
+        persistence = PersistenceManager(dataURL: appDir)
         
         loadUserData()
         // Load all CLI sessions in background for instant switching
@@ -366,39 +368,24 @@ final class AppState {
         }
     }
     
-    // MARK: - All Tags (sorted)
     var allTags: [TagInfo] {
-        let tags = Array(tagDatabase.values)
-        switch settings.tagSortMode {
-        case .important:
-            return tags.sorted { ($0.isImportant ? 0 : 1, $0.name) < ($1.isImportant ? 0 : 1, $1.name) }
-        case .alphabetical:
-            return tags.sorted { $0.name < $1.name }
-        case .countDesc:
-            return tags.sorted { tagCount(for: $0.name) > tagCount(for: $1.name) }
-        case .countAsc:
-            return tags.sorted { tagCount(for: $0.name) < tagCount(for: $1.name) }
-        }
+        TagManager.allTags(from: tagDatabase, sortMode: settings.tagSortMode, sessionMetadata: sessionMetadata)
     }
     
     var visibleTags: [TagInfo] {
-        if settings.visibleTagsInList.isEmpty {
-            return allTags.filter { $0.isImportant }.prefix(5).map { $0 }
-        }
-        return settings.visibleTagsInList.compactMap { tagDatabase[$0] }
+        TagManager.visibleTags(from: tagDatabase, visibleTagNames: settings.visibleTagsInList, sortMode: settings.tagSortMode, sessionMetadata: sessionMetadata)
     }
     
     func tagCount(for tagName: String) -> Int {
-        sessionMetadata.values.filter { $0.tags.contains(tagName) }.count
+        TagManager.countForTag(tagName, in: sessionMetadata)
     }
     
-    // MARK: - Nested Tags
     var rootTags: [TagInfo] {
-        allTags.filter { $0.parentTag == nil }
+        TagManager.rootTags(from: tagDatabase, sortMode: settings.tagSortMode, sessionMetadata: sessionMetadata)
     }
     
     func childTags(of parentName: String) -> [TagInfo] {
-        allTags.filter { $0.parentTag == parentName }
+        TagManager.childTags(of: parentName, from: tagDatabase, sortMode: settings.tagSortMode, sessionMetadata: sessionMetadata)
     }
     
     // MARK: - Sessions
@@ -420,173 +407,16 @@ final class AppState {
     }
     
     func filterSessions() {
-        var result = sessions
-        
-        if !showArchivedSessions {
-            result = result.filter { sessionMetadata[$0.id]?.isArchived != true }
-        }
-        
-        if showFavoritesOnly {
-            result = result.filter { sessionMetadata[$0.id]?.isFavorite == true }
-        }
-        
-        if let tag = selectedTag {
-            result = result.filter { sessionMetadata[$0.id]?.tags.contains(tag) == true }
-        }
-        
-        if !searchText.isEmpty {
-            let query = searchText.trimmingCharacters(in: .whitespaces)
-            
-            if query.hasPrefix("title:") {
-                let term = String(query.dropFirst(6)).lowercased().trimmingCharacters(in: .whitespaces)
-                result = result.filter { session in
-                    session.title.lowercased().contains(term) ||
-                    (sessionMetadata[session.id]?.customName?.lowercased().contains(term) == true)
-                }
-            } else if query.hasPrefix("tag:") {
-                let term = String(query.dropFirst(4)).lowercased().trimmingCharacters(in: .whitespaces)
-                result = result.filter { session in
-                    sessionMetadata[session.id]?.tags.contains { $0.lowercased().contains(term) } == true
-                }
-            } else if query.hasPrefix("project:") {
-                let term = String(query.dropFirst(8)).lowercased().trimmingCharacters(in: .whitespaces)
-                result = result.filter { session in
-                    session.project.lowercased().contains(term) ||
-                    session.projectName.lowercased().contains(term)
-                }
-            } else if query.hasPrefix("content:") {
-                let term = String(query.dropFirst(8)).lowercased().trimmingCharacters(in: .whitespaces)
-                result = result.filter { session in
-                    session.preview.lowercased().contains(term)
-                }
-            } else if query.hasPrefix("date:") {
-                // Date filter: date:today, date:yesterday, date:week, date:month, date:2024-01-15, date:2024-01-01..2024-01-31
-                let term = String(query.dropFirst(5)).trimmingCharacters(in: .whitespaces)
-                result = result.filter { session in
-                    matchesDateFilter(session: session, dateFilter: term)
-                }
-            } else if query.hasPrefix("regex:") {
-                // Regex search in title, project, and preview
-                let pattern = String(query.dropFirst(6)).trimmingCharacters(in: .whitespaces)
-                if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
-                    result = result.filter { session in
-                        let searchTargets = [
-                            session.title,
-                            session.project,
-                            session.preview,
-                            sessionMetadata[session.id]?.customName ?? ""
-                        ]
-                        return searchTargets.contains { target in
-                            let range = NSRange(target.startIndex..., in: target)
-                            return regex.firstMatch(in: target, options: [], range: range) != nil
-                        }
-                    }
-                }
-            } else if query.hasPrefix("messages:") {
-                // Message count filter: messages:>10, messages:<5, messages:=20, messages:10..50
-                let term = String(query.dropFirst(9)).trimmingCharacters(in: .whitespaces)
-                result = result.filter { session in
-                    matchesMessageCountFilter(session: session, filter: term)
-                }
-            } else {
-                let term = query.lowercased()
-                currentSearchTerm = term
-                result = result.filter { session in
-                    session.title.lowercased().contains(term) ||
-                    session.project.lowercased().contains(term) ||
-                    session.preview.lowercased().contains(term) ||
-                    (sessionMetadata[session.id]?.customName?.lowercased().contains(term) == true) ||
-                    (sessionMetadata[session.id]?.tags.contains { $0.lowercased().contains(term) } == true)
-                }
-            }
-        } else {
-            currentSearchTerm = nil
-        }
-        
-        // Sort: pinned first
-        result.sort { first, second in
-            let firstPinned = sessionMetadata[first.id]?.isPinned == true
-            let secondPinned = sessionMetadata[second.id]?.isPinned == true
-            if firstPinned != secondPinned {
-                return firstPinned
-            }
-            return first.lastActivity > second.lastActivity
-        }
-        
-        filteredSessions = result
-    }
-    
-    // MARK: - Search Filter Helpers
-    
-    private func matchesDateFilter(session: Session, dateFilter: String) -> Bool {
-        let calendar = Calendar.current
-        let sessionDate = session.lastActivity
-        let today = calendar.startOfDay(for: Date())
-        
-        switch dateFilter.lowercased() {
-        case "today":
-            return calendar.isDateInToday(sessionDate)
-        case "yesterday":
-            return calendar.isDateInYesterday(sessionDate)
-        case "week":
-            guard let weekAgo = calendar.date(byAdding: .day, value: -7, to: today) else { return false }
-            return sessionDate >= weekAgo
-        case "month":
-            guard let monthAgo = calendar.date(byAdding: .month, value: -1, to: today) else { return false }
-            return sessionDate >= monthAgo
-        default:
-            // Check for date range: 2024-01-01..2024-01-31
-            if dateFilter.contains("..") {
-                let parts = dateFilter.split(separator: ".").map(String.init).filter { !$0.isEmpty }
-                if parts.count == 2 {
-                    let formatter = DateFormatter()
-                    formatter.dateFormat = "yyyy-MM-dd"
-                    if let startDate = formatter.date(from: parts[0]),
-                       let endDate = formatter.date(from: parts[1]) {
-                        let startOfStart = calendar.startOfDay(for: startDate)
-                        let endOfEnd = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: endDate)) ?? endDate
-                        return sessionDate >= startOfStart && sessionDate < endOfEnd
-                    }
-                }
-            }
-            // Check for specific date: 2024-01-15
-            let formatter = DateFormatter()
-            formatter.dateFormat = "yyyy-MM-dd"
-            if let specificDate = formatter.date(from: dateFilter) {
-                return calendar.isDate(sessionDate, inSameDayAs: specificDate)
-            }
-            return false
-        }
-    }
-    
-    private func matchesMessageCountFilter(session: Session, filter: String) -> Bool {
-        let count = session.messageCount
-        
-        // Range: 10..50
-        if filter.contains("..") {
-            let parts = filter.split(separator: ".").map(String.init).filter { !$0.isEmpty }
-            if parts.count == 2, let min = Int(parts[0]), let max = Int(parts[1]) {
-                return count >= min && count <= max
-            }
-        }
-        
-        // Comparison: >10, <5, >=20, <=30, =15
-        if filter.hasPrefix(">="), let value = Int(filter.dropFirst(2)) {
-            return count >= value
-        } else if filter.hasPrefix("<="), let value = Int(filter.dropFirst(2)) {
-            return count <= value
-        } else if filter.hasPrefix(">"), let value = Int(filter.dropFirst(1)) {
-            return count > value
-        } else if filter.hasPrefix("<"), let value = Int(filter.dropFirst(1)) {
-            return count < value
-        } else if filter.hasPrefix("="), let value = Int(filter.dropFirst(1)) {
-            return count == value
-        } else if let value = Int(filter) {
-            // Exact match if just a number
-            return count == value
-        }
-        
-        return false
+        let result = SessionFilter.filter(
+            sessions: sessions,
+            searchText: searchText,
+            selectedTag: selectedTag,
+            showArchivedSessions: showArchivedSessions,
+            showFavoritesOnly: showFavoritesOnly,
+            sessionMetadata: sessionMetadata
+        )
+        filteredSessions = result.sessions
+        currentSearchTerm = result.searchTerm
     }
     
     // MARK: - Session Metadata Helpers
@@ -748,75 +578,31 @@ final class AppState {
         isMultiSelectMode = !selectedSessionIds.isEmpty
     }
     
-    // MARK: - Tag Database Helpers
     func updateTagInfo(_ tagInfo: TagInfo) {
         tagDatabase[tagInfo.name] = tagInfo
         saveUserData()
     }
     
     func renameTag(from oldName: String, to newName: String) {
-        guard oldName != newName else { return }
-        
-        // Update tag database
-        if var tagInfo = tagDatabase[oldName] {
-            tagDatabase.removeValue(forKey: oldName)
-            tagInfo = TagInfo(name: newName, color: tagInfo.color, isImportant: tagInfo.isImportant, parentTag: tagInfo.parentTag)
-            tagDatabase[newName] = tagInfo
-        }
-        
-        // Update all sessions
-        for (sessionId, var meta) in sessionMetadata {
-            if let index = meta.tags.firstIndex(of: oldName) {
-                meta.tags[index] = newName
-                sessionMetadata[sessionId] = meta
-            }
-        }
-        
-        // Update parent references
-        for (name, var info) in tagDatabase {
-            if info.parentTag == oldName {
-                info = TagInfo(name: name, color: info.color, isImportant: info.isImportant, parentTag: newName)
-                tagDatabase[name] = info
-            }
-        }
-        
+        TagManager.rename(from: oldName, to: newName, tagDatabase: &tagDatabase, sessionMetadata: &sessionMetadata)
         saveUserData()
     }
     
     func deleteTag(_ tagName: String) {
-        tagDatabase.removeValue(forKey: tagName)
-        
-        for (sessionId, var meta) in sessionMetadata {
-            meta.tags.removeAll { $0 == tagName }
-            sessionMetadata[sessionId] = meta
-        }
-        
+        TagManager.delete(tagName, tagDatabase: &tagDatabase, sessionMetadata: &sessionMetadata)
         saveUserData()
     }
     
-    // MARK: - Projects
     var allProjects: [String] {
-        Array(Set(sessions.map { $0.project })).sorted()
+        ProjectManager.allProjects(from: sessions)
     }
     
     func sessionsForProject(_ projectPath: String) -> [Session] {
-        sessions.filter { $0.project == projectPath }
+        ProjectManager.sessionsForProject(projectPath, in: sessions)
     }
     
     func projectStats(for projectPath: String) -> ProjectStats {
-        let projectSessions = sessionsForProject(projectPath)
-        let totalMessages = projectSessions.reduce(0) { $0 + $1.messageCount }
-        let dates = projectSessions.map { $0.lastActivity }
-        let uniqueDays = Set(dates.map { Calendar.current.startOfDay(for: $0) }).count
-        
-        return ProjectStats(
-            totalSessions: projectSessions.count,
-            totalMessages: totalMessages,
-            firstSession: projectSessions.map { $0.firstTimestamp ?? $0.lastActivity }.min(),
-            lastSession: dates.max(),
-            averageMessagesPerSession: projectSessions.isEmpty ? 0 : Double(totalMessages) / Double(projectSessions.count),
-            activeDays: uniqueDays
-        )
+        ProjectManager.stats(for: projectPath, in: sessions)
     }
     
     func getProjectMetadata(_ path: String) -> ProjectMetadata {
@@ -829,82 +615,22 @@ final class AppState {
     }
     
     func toggleProjectFavorite(_ path: String) {
-        var meta = getProjectMetadata(path)
-        meta = ProjectMetadata(
-            path: meta.path,
-            customName: meta.customName,
-            description: meta.description,
-            languages: meta.languages,
-            frameworks: meta.frameworks,
-            tags: meta.tags,
-            color: meta.color,
-            isFavorite: !meta.isFavorite,
-            isPinned: meta.isPinned,
-            notes: meta.notes,
-            lastOpened: meta.lastOpened,
-            createdAt: meta.createdAt
-        )
-        projectMetadata[path] = meta
+        ProjectManager.toggleFavorite(path, in: &projectMetadata)
         saveUserData()
     }
     
     func toggleProjectPinned(_ path: String) {
-        var meta = getProjectMetadata(path)
-        meta = ProjectMetadata(
-            path: meta.path,
-            customName: meta.customName,
-            description: meta.description,
-            languages: meta.languages,
-            frameworks: meta.frameworks,
-            tags: meta.tags,
-            color: meta.color,
-            isFavorite: meta.isFavorite,
-            isPinned: !meta.isPinned,
-            notes: meta.notes,
-            lastOpened: meta.lastOpened,
-            createdAt: meta.createdAt
-        )
-        projectMetadata[path] = meta
+        ProjectManager.togglePinned(path, in: &projectMetadata)
         saveUserData()
     }
     
     func setProjectLanguages(_ path: String, languages: [String]) {
-        var meta = getProjectMetadata(path)
-        meta = ProjectMetadata(
-            path: meta.path,
-            customName: meta.customName,
-            description: meta.description,
-            languages: languages,
-            frameworks: meta.frameworks,
-            tags: meta.tags,
-            color: meta.color,
-            isFavorite: meta.isFavorite,
-            isPinned: meta.isPinned,
-            notes: meta.notes,
-            lastOpened: meta.lastOpened,
-            createdAt: meta.createdAt
-        )
-        projectMetadata[path] = meta
+        ProjectManager.setLanguages(path, languages: languages, in: &projectMetadata)
         saveUserData()
     }
     
     func setProjectFrameworks(_ path: String, frameworks: [String]) {
-        var meta = getProjectMetadata(path)
-        meta = ProjectMetadata(
-            path: meta.path,
-            customName: meta.customName,
-            description: meta.description,
-            languages: meta.languages,
-            frameworks: frameworks,
-            tags: meta.tags,
-            color: meta.color,
-            isFavorite: meta.isFavorite,
-            isPinned: meta.isPinned,
-            notes: meta.notes,
-            lastOpened: meta.lastOpened,
-            createdAt: meta.createdAt
-        )
-        projectMetadata[path] = meta
+        ProjectManager.setFrameworks(path, frameworks: frameworks, in: &projectMetadata)
         saveUserData()
     }
     
@@ -920,99 +646,22 @@ final class AppState {
     
     // MARK: - Persistence
     private func loadUserData() {
-        let settingsURL = dataURL.appendingPathComponent("settings.json")
-        let metadataURL = dataURL.appendingPathComponent("session-metadata.json")
-        let tagsURL = dataURL.appendingPathComponent("tag-database.json")
-        let summariesURL = dataURL.appendingPathComponent("summaries.json")
-        let projectsURL = dataURL.appendingPathComponent("project-metadata.json")
-        
-        if let data = try? Data(contentsOf: settingsURL),
-           let loaded = try? JSONDecoder().decode(AppSettings.self, from: data) {
-            settings = loaded
-        }
-        
-        if let data = try? Data(contentsOf: metadataURL),
-           let loaded = try? JSONDecoder().decode([String: SessionMetadata].self, from: data) {
-            sessionMetadata = loaded
-        }
-        
-        if let data = try? Data(contentsOf: tagsURL),
-           let loaded = try? JSONDecoder().decode([String: TagInfo].self, from: data) {
-            tagDatabase = loaded
-        }
-        
-        if let data = try? Data(contentsOf: summariesURL),
-           let loaded = try? JSONDecoder().decode([String: SessionSummary].self, from: data) {
-            sessionSummaries = loaded
-        }
-        
-        if let data = try? Data(contentsOf: projectsURL),
-           let loaded = try? JSONDecoder().decode([String: ProjectMetadata].self, from: data) {
-            projectMetadata = loaded
-        }
-        
-        // Migrate old data if exists
-        migrateOldData()
-    }
-    
-    private func migrateOldData() {
-        let oldNamesURL = dataURL.appendingPathComponent("session-names.json")
-        let oldTagsURL = dataURL.appendingPathComponent("session-tags.json")
-        
-        // Migrate session names
-        if let data = try? Data(contentsOf: oldNamesURL),
-           let names = try? JSONDecoder().decode([String: String].self, from: data) {
-            for (sessionId, name) in names {
-                var meta = sessionMetadata[sessionId] ?? SessionMetadata()
-                if meta.customName == nil {
-                    meta.customName = name
-                    sessionMetadata[sessionId] = meta
-                }
-            }
-            try? FileManager.default.removeItem(at: oldNamesURL)
-        }
-        
-        // Migrate session tags
-        if let data = try? Data(contentsOf: oldTagsURL),
-           let tags = try? JSONDecoder().decode([String: [String]].self, from: data) {
-            for (sessionId, tagList) in tags {
-                var meta = sessionMetadata[sessionId] ?? SessionMetadata()
-                for tag in tagList {
-                    if !meta.tags.contains(tag) {
-                        meta.tags.append(tag)
-                    }
-                    if tagDatabase[tag] == nil {
-                        tagDatabase[tag] = TagInfo(name: tag)
-                    }
-                }
-                sessionMetadata[sessionId] = meta
-            }
-            try? FileManager.default.removeItem(at: oldTagsURL)
-        }
+        settings = persistence.loadSettings()
+        sessionMetadata = persistence.loadSessionMetadata()
+        tagDatabase = persistence.loadTagDatabase()
+        sessionSummaries = persistence.loadSummaries()
+        projectMetadata = persistence.loadProjectMetadata()
+        persistence.migrateOldData(sessionMetadata: &sessionMetadata, tagDatabase: &tagDatabase)
     }
     
     func saveUserData() {
-        let settingsURL = dataURL.appendingPathComponent("settings.json")
-        let metadataURL = dataURL.appendingPathComponent("session-metadata.json")
-        let tagsURL = dataURL.appendingPathComponent("tag-database.json")
-        let summariesURL = dataURL.appendingPathComponent("summaries.json")
-        let projectsURL = dataURL.appendingPathComponent("project-metadata.json")
-        
-        if let data = try? JSONEncoder().encode(settings) {
-            try? data.write(to: settingsURL)
-        }
-        if let data = try? JSONEncoder().encode(sessionMetadata) {
-            try? data.write(to: metadataURL)
-        }
-        if let data = try? JSONEncoder().encode(tagDatabase) {
-            try? data.write(to: tagsURL)
-        }
-        if let data = try? JSONEncoder().encode(sessionSummaries) {
-            try? data.write(to: summariesURL)
-        }
-        if let data = try? JSONEncoder().encode(projectMetadata) {
-            try? data.write(to: projectsURL)
-        }
+        persistence.save(
+            settings: settings,
+            sessionMetadata: sessionMetadata,
+            tagDatabase: tagDatabase,
+            summaries: sessionSummaries,
+            projectMetadata: projectMetadata
+        )
     }
     
     @MainActor
