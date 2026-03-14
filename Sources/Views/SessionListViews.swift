@@ -624,6 +624,8 @@ struct BulkActionBar: View {
 struct StatsBar: View {
     @Environment(AppState.self) private var appState
     @Environment(\.openSettings) private var openSettings
+    @State private var cachedTotalMessages: Int = 0
+    @State private var cachedSessionCount: Int = 0
 
     var body: some View {
         HStack(spacing: 16) {
@@ -645,20 +647,19 @@ struct StatsBar: View {
                     .font(.system(size: 12))
                 Text("Sessions")
                     .font(.system(size: 12))
-                Text("\(appState.filteredSessions.count)")
+                Text("\(cachedSessionCount)")
                     .font(.system(size: 13, weight: .semibold))
             }
             .foregroundStyle(.secondary)
 
             Spacer()
 
-            let totalMessages = appState.filteredSessions.reduce(0) { $0 + $1.messageCount }
             HStack(spacing: 6) {
                 Image(systemName: "bubble.left.and.bubble.right")
                     .font(.system(size: 12))
                 Text("Messages")
                     .font(.system(size: 12))
-                Text(formatNumber(totalMessages))
+                Text(formatNumber(cachedTotalMessages))
                     .font(.system(size: 13, weight: .semibold))
             }
             .foregroundStyle(.secondary)
@@ -666,6 +667,14 @@ struct StatsBar: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
         .background(.ultraThinMaterial)
+        .onChange(of: appState.filteredSessions.count) { _, newCount in
+            cachedSessionCount = newCount
+            cachedTotalMessages = appState.filteredSessions.reduce(0) { $0 + $1.messageCount }
+        }
+        .task {
+            cachedSessionCount = appState.filteredSessions.count
+            cachedTotalMessages = appState.filteredSessions.reduce(0) { $0 + $1.messageCount }
+        }
     }
 
     private func formatNumber(_ num: Int) -> String {

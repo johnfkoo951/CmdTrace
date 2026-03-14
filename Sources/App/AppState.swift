@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 import Observation
 
 // MARK: - Enums
@@ -263,7 +264,7 @@ final class AppState {
     var selectedTab: AppTab = .sessions
     
     var searchText: String = "" {
-        didSet { filterSessions() }
+        didSet { debouncedSearch() }
     }
     var isSearchFocused: Bool = false
     var isLoading: Bool = false
@@ -301,10 +302,14 @@ final class AppState {
     
     private var cachedSessions: [AgentType: [Session]] = [:]
     private var cacheLoadingStatus: [AgentType: Bool] = [:]
-    
+
     private let sessionService = SessionService()
     private let dataURL: URL
     private let persistence: PersistenceManager
+
+    // Debounce timers
+    private var searchDebounceTask: Task<Void, Never>?
+    private var saveDebounceTask: Task<Void, Never>?
     
     var cloudSyncStatus: CloudSyncService.SyncStatus = .idle
     var lastCloudSyncDate: Date?
@@ -415,6 +420,16 @@ final class AppState {
         isLoading = false
     }
     
+    // MARK: - Debounced Search (300ms delay for typing)
+    private func debouncedSearch() {
+        searchDebounceTask?.cancel()
+        searchDebounceTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 300_000_000) // 300ms
+            guard !Task.isCancelled else { return }
+            filterSessions()
+        }
+    }
+
     func filterSessions() {
         let result = SessionFilter.filter(
             sessions: sessions,
@@ -522,14 +537,25 @@ final class AppState {
     // MARK: - Bulk Operations
     func bulkAddTag(_ tagName: String) {
         for sessionId in selectedSessionIds {
-            addTag(tagName, to: sessionId)
+            var meta = sessionMetadata[sessionId] ?? SessionMetadata()
+            if !meta.tags.contains(tagName) {
+                meta.tags.append(tagName)
+                sessionMetadata[sessionId] = meta
+            }
         }
+        if tagDatabase[tagName] == nil {
+            tagDatabase[tagName] = TagInfo(name: tagName)
+        }
+        saveUserData() // Single save for entire batch
     }
-    
+
     func bulkRemoveTag(_ tagName: String) {
         for sessionId in selectedSessionIds {
-            removeTag(tagName, from: sessionId)
+            var meta = sessionMetadata[sessionId] ?? SessionMetadata()
+            meta.tags.removeAll { $0 == tagName }
+            sessionMetadata[sessionId] = meta
         }
+        saveUserData() // Single save for entire batch
     }
     
     func bulkArchive() {
@@ -562,10 +588,14 @@ final class AppState {
     
     func bulkToggleFavorite() {
         for sessionId in selectedSessionIds {
-            toggleFavorite(for: sessionId)
+            var meta = sessionMetadata[sessionId] ?? SessionMetadata()
+            meta.isFavorite.toggle()
+            sessionMetadata[sessionId] = meta
         }
         selectedSessionIds.removeAll()
         isMultiSelectMode = false
+        filterSessions()
+        saveUserData() // Single save for entire batch
     }
     
     func clearSelection() {
@@ -664,6 +694,16 @@ final class AppState {
     }
     
     func saveUserData() {
+        saveDebounceTask?.cancel()
+        saveDebounceTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 500_000_000) // 500ms debounce
+            guard !Task.isCancelled else { return }
+            self.saveUserDataNow()
+        }
+    }
+
+    /// Immediate save (bypasses debounce) - for critical saves like app quit
+    func saveUserDataNow() {
         persistence.save(
             settings: settings,
             sessionMetadata: sessionMetadata,

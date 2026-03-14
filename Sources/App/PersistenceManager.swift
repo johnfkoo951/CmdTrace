@@ -55,20 +55,25 @@ struct PersistenceManager {
         summaries: [String: SessionSummary],
         projectMetadata: [String: ProjectMetadata]
     ) {
-        if let data = try? JSONEncoder().encode(settings) {
-            try? data.write(to: dataURL.appendingPathComponent("settings.json"))
-        }
-        if let data = try? JSONEncoder().encode(sessionMetadata) {
-            try? data.write(to: dataURL.appendingPathComponent("session-metadata.json"))
-        }
-        if let data = try? JSONEncoder().encode(tagDatabase) {
-            try? data.write(to: dataURL.appendingPathComponent("tag-database.json"))
-        }
-        if let data = try? JSONEncoder().encode(summaries) {
-            try? data.write(to: dataURL.appendingPathComponent("summaries.json"))
-        }
-        if let data = try? JSONEncoder().encode(projectMetadata) {
-            try? data.write(to: dataURL.appendingPathComponent("project-metadata.json"))
+        // Perform writes on a background queue to avoid blocking UI
+        let dataURL = self.dataURL
+        let encoder = JSONEncoder()
+        DispatchQueue.global(qos: .utility).async {
+            if let data = try? encoder.encode(settings) {
+                try? data.write(to: dataURL.appendingPathComponent("settings.json"), options: .atomic)
+            }
+            if let data = try? encoder.encode(sessionMetadata) {
+                try? data.write(to: dataURL.appendingPathComponent("session-metadata.json"), options: .atomic)
+            }
+            if let data = try? encoder.encode(tagDatabase) {
+                try? data.write(to: dataURL.appendingPathComponent("tag-database.json"), options: .atomic)
+            }
+            if let data = try? encoder.encode(summaries) {
+                try? data.write(to: dataURL.appendingPathComponent("summaries.json"), options: .atomic)
+            }
+            if let data = try? encoder.encode(projectMetadata) {
+                try? data.write(to: dataURL.appendingPathComponent("project-metadata.json"), options: .atomic)
+            }
         }
     }
 

@@ -11,6 +11,8 @@ struct NativeMonitorView: View {
     @State private var refreshInterval: Double = 10.0
     @Environment(\.dismiss) private var dismiss
 
+    @State private var isLoadingData = false // backpressure guard
+
     // Customizable colors
     @State private var costBarColor: Color = .orange
     @State private var tokenBarColor: Color = .green
@@ -295,6 +297,11 @@ struct NativeMonitorView: View {
     }
 
     private func loadData() async {
+        // Backpressure: skip if previous load still running
+        guard !isLoadingData else { return }
+        isLoadingData = true
+        defer { Task { @MainActor in isLoadingData = false } }
+
         isLoading = true
         errorMessage = nil
 

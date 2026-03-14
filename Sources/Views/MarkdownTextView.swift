@@ -3,14 +3,20 @@ import SwiftUI
 // MARK: - Markdown Text View
 struct MarkdownText: View {
     let content: String
+    @State private var cachedBlocks: [Block]?
 
     init(_ content: String) {
         self.content = content
     }
 
+    private var blocks: [Block] {
+        if let cached = cachedBlocks { return cached }
+        return parseBlocks()
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            ForEach(Array(parseBlocks().enumerated()), id: \.offset) { _, block in
+            ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
                 switch block {
                 case .text(let text):
                     if let attributed = try? AttributedString(markdown: text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) {
@@ -129,6 +135,9 @@ struct MarkdownText: View {
                     .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
                 }
             }
+        }
+        .task(id: content) {
+            cachedBlocks = parseBlocks()
         }
     }
 

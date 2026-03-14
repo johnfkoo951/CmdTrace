@@ -3,13 +3,19 @@ import SwiftUI
 @main
 struct CmdTraceApp: App {
     @State private var appState = AppState()
-    
+    @Environment(\.scenePhase) private var scenePhase
+
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environment(appState)
                 .onOpenURL { url in
                     handleDeepLink(url)
+                }
+                .onChange(of: scenePhase) { _, newPhase in
+                    if newPhase == .background || newPhase == .inactive {
+                        appState.saveUserDataNow() // Flush pending saves on app deactivate
+                    }
                 }
         }
         .windowStyle(.automatic)
