@@ -21,27 +21,50 @@ CmdTrace is a session viewer for CLI-based AI coding assistants (Claude Code, Op
 Sources/
 ├── App/
 │   ├── CmdTraceApp.swift        # App entry point, window/menu config
-│   └── AppState.swift           # Global state (@Observable), settings, persistence
+│   ├── AppState.swift           # Global state (@Observable), debounced search/save
+│   ├── PersistenceManager.swift # Background I/O with atomic writes
+│   ├── ProjectManager.swift     # Project metadata management
+│   ├── SessionFilter.swift      # Search operators and filtering logic
+│   └── TagManager.swift         # Tag CRUD and bulk operations
 ├── Models/
 │   ├── Session.swift            # Session data model
 │   ├── Message.swift            # Message/conversation models
-│   └── UsageData.swift          # Usage data models (UsageData, UsageViewMode)
+│   ├── UsageData.swift          # Usage data models (UsageData, UsageViewMode)
+│   ├── ClaudeConfig.swift       # Claude configuration parsing
+│   ├── ProjectMetadata.swift    # Project metadata model
+│   └── SessionInsights.swift    # Token/tool/model usage analysis models
 ├── Services/
-│   └── SessionService.swift     # JSONL file parsing, session loading
-└── Views/
+│   ├── SessionService.swift     # JSONL file parsing with memory-efficient streaming
+│   ├── SummaryService.swift     # AI-powered session summarization
+│   ├── ClaudeConfigService.swift # Claude config file reading
+│   ├── CloudSyncService.swift   # iCloud sync (UI ready, backend pending)
+│   ├── LocalServer.swift        # Embedded HTTP server for webapp dashboard
+│   ├── APIRouter.swift          # Multi-provider API routing
+│   └── TerminalService.swift    # Shell command execution
+└── Views/  (23 files)
     ├── ContentView.swift        # Main layout (NavigationSplitView)
-    ├── SidebarView.swift        # Session list, tags, search/filter
-    ├── DetailView.swift         # Core views: DetailView, SessionDetailView, ConversationView, SessionHeader, InspectorPanel, MessageBubble, HelperViews (~1900 lines)
-    ├── DashboardView.swift      # Dashboard tab: DashboardView, DashboardInspectorPanel (~300 lines)
-    ├── UsageViews.swift         # Usage components: UsageSection, ClaudePlan, DailyUsageRow, MonthlyUsageRow, BlockUsageRow, UsageToolsSection (~730 lines)
-    ├── NativeMonitorView.swift  # Real-time monitor: NativeMonitorView, MonitorData, BurnRateChartView, MonitorBarView (~780 lines)
-    ├── InteractionView.swift    # AI tab: InteractionView, AIInspectorPanel (~170 lines)
-    ├── MarkdownTextView.swift   # Markdown rendering: MarkdownText with code blocks, tables, callouts (~270 lines)
-    ├── SessionInsightsView.swift # Session insights: TokenUsageView, ToolUsageView, ModelUsageView (~375 lines)
+    ├── SidebarView.swift        # 4-tab sidebar (Files/Search/Favorites/Vaults)
+    ├── DetailView.swift         # Session detail routing (~140 lines)
+    ├── SessionHeaderView.swift  # Session header with metadata
+    ├── SessionListViews.swift   # Session list, filters, bulk actions, stats bar
+    ├── InspectorPanelView.swift # Right inspector (TOC/Properties/Actions)
+    ├── MessageBubbleView.swift  # Chat bubble rendering
+    ├── HelperViews.swift        # Shared UI helpers
+    ├── DashboardView.swift      # Dashboard tab
+    ├── UsageViews.swift         # ccusage data display (~710 lines)
+    ├── NativeMonitorView.swift  # Real-time monitor with backpressure (~780 lines)
+    ├── InteractionView.swift    # AI interaction tab
+    ├── MarkdownTextView.swift   # Markdown rendering with block caching (~280 lines)
+    ├── SessionInsightsView.swift # Token/tool/model usage views
+    ├── InsightsViews.swift      # Additional insight components
     ├── StatisticsView.swift     # Statistics sheet
-    ├── ConfigurationView.swift  # Configuration tab
-    ├── ProjectsView.swift       # Projects tab
-    └── SettingsView.swift       # App settings UI
+    ├── ConfigurationView.swift  # CLI settings and API config (~980 lines)
+    ├── ProjectsView.swift       # Projects dashboard (~780 lines)
+    ├── SettingsView.swift       # App settings (~910 lines)
+    ├── TagBrowserView.swift     # Tag browsing and management (~600 lines)
+    ├── SessionDiffView.swift    # Session comparison (side-by-side)
+    ├── ExportView.swift         # Session export (MD/JSON/TXT/HTML)
+    └── Components/              # Reusable UI components
 ```
 
 ## Key Features
@@ -87,6 +110,7 @@ App data stored in:
 - `~/Library/Application Support/CmdTrace/session-metadata.json`
 - `~/Library/Application Support/CmdTrace/tag-database.json`
 - `~/Library/Application Support/CmdTrace/summaries.json`
+- `~/Library/Application Support/CmdTrace/project-metadata.json`
 
 ## External CLI Tools
 
@@ -142,7 +166,21 @@ Uses Swift's `@Observable` macro for reactive state. Single source of truth for:
 Pre-loads sessions for all CLI tools on startup for instant switching between Claude Code and OpenCode.
 
 ### Persistence
-All user data (settings, tags, favorites) persisted as JSON. Session metadata is stored separately from the session files themselves (which are read-only).
+All user data (settings, tags, favorites) persisted as JSON via `PersistenceManager`:
+- **Background I/O**: File writes run on `DispatchQueue.global(qos: .utility)` with `.atomic` option
+- **Debounced Save**: 500ms debounce to batch rapid changes; `saveUserDataNow()` for critical saves (app quit)
+- Session metadata is stored separately from the session files themselves (which are read-only)
+
+### Debouncing
+- **Search**: 300ms debounce on `searchText` changes to avoid filtering on every keystroke
+- **Save**: 500ms debounce on `saveUserData()` to batch I/O; immediate flush on app deactivate via `scenePhase`
+
+### JSONL Parsing
+- Uses `enumerateSubstrings(in:options:.byLines)` for memory-efficient line iteration (not `components(separatedBy:)`)
+- `reserveCapacity` on message arrays based on known `messageCount`
+
+### Embedded HTTP Server
+`LocalServer.swift` provides a built-in HTTP server for webapp dashboard access (Phase A).
 
 ### CLI Execution from GUI
 When executing CLI tools (ccusage, claude-monitor) from the GUI:
@@ -160,20 +198,17 @@ When executing CLI tools (ccusage, claude-monitor) from the GUI:
 - Follow Apple HIG for macOS app design
 - Import `Charts` for data visualization
 
-## Key View Components (DetailView.swift)
+## Key View Components
 
-### Usage Section
-- `UsageSection`: Main container for usage tools
-- `UsageTabView`: Tab switcher for ccusage views
-- `UsageOutputView`: Display ccusage results
-
-### Native Monitor
-- `NativeMonitorView`: Main monitoring sheet
+### Native Monitor (NativeMonitorView.swift)
+- `NativeMonitorView`: Main monitoring sheet with backpressure guard
 - `MonitorData`: Data model for monitoring state
 - `MonitorBarView`: Reusable progress bar component
 - `BurnRateChartView`: Swift Charts-based prediction graph
-- `ProjectionPoint`: Data point for chart projection
-- `ColorCustomizationView`: Color picker popover
+
+### Inspector (InspectorPanelView.swift)
+- Session info, summary, actions, detail sections
+- Tag editing with real-time filtering
 
 ### Enums
 - `ClaudePlan`: Pro, Max5, Max20 with limits
@@ -209,6 +244,29 @@ When executing CLI tools (ccusage, claude-monitor) from the GUI:
 | Bulk Operations | Multi-select, bulk tag/archive/favorite, select all | ✅ |
 | Search Highlighting | AttributedString-based highlighting in conversation | ✅ |
 | Cloud Sync UI | Settings UI for iCloud sync (backend pending) | ⚠️ UI Only |
+| DetailView Refactor | 3700+ lines → 10+ modular view files | ✅ |
+
+### Completed (v2.4.1)
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| Embedded HTTP Server | LocalServer for webapp dashboard (Phase A) | ✅ |
+| Tag Rename | Bulk update across all sessions | ✅ |
+| Tag Search Bar | Dedicated search in Tags view | ✅ |
+| CLI Selector | Improved UI with stable toggle order | ✅ |
+
+### Completed (v2.4.2)
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| Search Debounce | 300ms delay to reduce filtering during typing | ✅ |
+| Save Debounce | 500ms delay + immediate flush on app deactivate | ✅ |
+| Background I/O | PersistenceManager on utility queue with atomic writes | ✅ |
+| JSONL Parsing | enumerateSubstrings for memory-efficient line iteration | ✅ |
+| Bulk Op Optimization | Single save per batch instead of per-item | ✅ |
+| Markdown Caching | Block parse results cached, re-parsed only on content change | ✅ |
+| StatsBar Caching | Message count computed on change, not every frame | ✅ |
+| Monitor Backpressure | Prevent overlapping data loads | ✅ |
 
 ### Planned (v2.5.0+)
 
@@ -232,11 +290,12 @@ When executing CLI tools (ccusage, claude-monitor) from the GUI:
 
 ### Development Notes
 
-**Current Focus**: v2.4.0 테스트 완료 후 정식 릴리즈, 이후 v2.5.0에서 Cloud Sync 백엔드 구현
+**Current Focus**: v2.5.0에서 Cloud Sync 백엔드 구현 및 Menu Bar App 개발
 
 **Tech Debt**:
-- DetailView.swift 크기 (3700+ lines) → 분리 필요
-- Session loading 최적화 필요
+- ConfigurationView.swift (~980 lines), SettingsView.swift (~910 lines) 분리 검토
+- ~~DetailView.swift 분리~~ → v2.4.0에서 완료
+- ~~Session loading 최적화~~ → v2.4.2에서 JSONL 파싱 개선 완료
 
 
 Current: v2.4.2
