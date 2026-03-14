@@ -1,0 +1,183 @@
+{
+  "version": "2.0",
+  "lastUpdated": "2026-03-11T08:54:59.893Z",
+  "activeFeatures": [
+    "App",
+    "Views",
+    "Services"
+  ],
+  "primaryFeature": "App",
+  "features": {
+    "App": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-03-11T08:51:00.269Z",
+        "lastUpdated": "2026-03-11T08:54:59.893Z"
+      },
+      "lastFile": "/Users/yohankoo/DEV/CmdTrace/Sources/App/PersistenceManager.swift"
+    },
+    "Views": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-03-11T08:51:33.262Z",
+        "lastUpdated": "2026-03-11T08:53:16.921Z"
+      },
+      "lastFile": "/Users/yohankoo/DEV/CmdTrace/Sources/Views/SessionListViews.swift"
+    },
+    "Services": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-03-11T08:52:15.353Z",
+        "lastUpdated": "2026-03-11T08:54:27.712Z"
+      },
+      "lastFile": "/Users/yohankoo/DEV/CmdTrace/Sources/Services/SessionService.swift"
+    }
+  },
+  "pipeline": {
+    "currentPhase": 1,
+    "level": "Dynamic",
+    "phaseHistory": []
+  },
+  "session": {
+    "startedAt": "2026-03-11T08:47:44.563Z",
+    "onboardingCompleted": false,
+    "lastActivity": "2026-03-11T08:54:59.893Z"
+  },
+  "history": [
+    {
+      "timestamp": "2026-03-11T08:51:00.269Z",
+      "feature": "App",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-11T08:51:05.494Z",
+      "feature": "App",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-11T08:51:11.795Z",
+      "feature": "App",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-11T08:51:19.468Z",
+      "feature": "App",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-11T08:51:26.062Z",
+      "feature": "App",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-11T08:51:33.262Z",
+      "feature": "Views",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-11T08:51:57.025Z",
+      "feature": "Views",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-11T08:52:15.353Z",
+      "feature": "Services",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-11T08:52:31.428Z",
+      "feature": "Services",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-11T08:52:37.830Z",
+      "feature": "Views",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-11T08:52:47.283Z",
+      "feature": "Views",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-11T08:53:16.921Z",
+      "feature": "Views",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-11T08:53:29.255Z",
+      "feature": "App",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-11T08:53:37.983Z",
+      "feature": "App",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-11T08:53:44.390Z",
+      "feature": "App",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-11T08:54:04.966Z",
+      "feature": "Services",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-11T08:54:11.665Z",
+      "feature": "Services",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-11T08:54:24.095Z",
+      "feature": "Services",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-11T08:54:27.712Z",
+      "feature": "Services",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-11T08:54:59.893Z",
+      "feature": "App",
+      "phase": "do",
+      "action": "updated"
+    }
+  ]
+}
