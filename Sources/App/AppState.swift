@@ -534,7 +534,69 @@ final class AppState {
         saveUserData()
     }
     
+    // MARK: - Batch Processing State
+    var isBatchProcessing: Bool = false
+    var batchProgress: Int = 0
+    var batchTotal: Int = 0
+    var batchErrors: [String: String] = [:]  // sessionId -> error message
+
+    // MARK: - Single Session AI Summary (reusable from context menu and batch)
+    func generateSummary(for session: Session) async -> String? {
+        guard let config = SummaryService.configFrom(settings: settings) else {
+            return "\(settings.summaryProvider.rawValue) API 키 미설정"
+        }
+
+        do {
+            let messages = try await sessionService.loadMessages(for: session, agent: agentType)
+            let result = try await SummaryService.generateSummary(config: config, session: session, messages: messages)
+            await MainActor.run { result.apply(to: self, sessionId: session.id) }
+            return nil // success
+        } catch {
+            return error.localizedDescription
+        }
+    }
+
+    // MARK: - Batch AI Summary (sequential, one by one)
+    @MainActor
+    func batchGenerateSummaries() async {
+        let sessionIds = Array(selectedSessionIds)
+        guard !sessionIds.isEmpty else { return }
+
+        isBatchProcessing = true
+        batchProgress = 0
+        batchTotal = sessionIds.count
+        batchErrors = [:]
+
+        for sessionId in sessionIds {
+            guard let session = sessions.first(where: { $0.id == sessionId }) else {
+                batchProgress += 1
+                continue
+            }
+
+            if let error = await generateSummary(for: session) {
+                batchErrors[sessionId] = error
+            }
+            batchProgress += 1
+        }
+
+        isBatchProcessing = false
+        selectedSessionIds.removeAll()
+        isMultiSelectMode = false
+    }
+
     // MARK: - Bulk Operations
+    func bulkTogglePinned() {
+        for sessionId in selectedSessionIds {
+            var meta = sessionMetadata[sessionId] ?? SessionMetadata()
+            meta.isPinned.toggle()
+            sessionMetadata[sessionId] = meta
+        }
+        selectedSessionIds.removeAll()
+        isMultiSelectMode = false
+        filterSessions()
+        saveUserData()
+    }
+
     func bulkAddTag(_ tagName: String) {
         for sessionId in selectedSessionIds {
             var meta = sessionMetadata[sessionId] ?? SessionMetadata()

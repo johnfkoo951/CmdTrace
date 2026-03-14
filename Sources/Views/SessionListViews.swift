@@ -89,6 +89,8 @@ struct SessionRow: View {
     @State private var showRenameSheet = false
     @State private var showTagSheet = false
     @State private var newName = ""
+    @State private var isGeneratingSummary = false
+    @State private var summaryError: String?
 
     private var isFavorite: Bool { appState.isFavorite(session.id) }
     private var isPinned: Bool { appState.isPinned(session.id) }
@@ -256,9 +258,25 @@ struct SessionRow: View {
             } label: {
                 Label("Manage Tags", systemImage: "tag")
             }
-            
+
             Divider()
-            
+
+            Button {
+                Task {
+                    isGeneratingSummary = true
+                    summaryError = nil
+                    let error = await appState.generateSummary(for: session)
+                    isGeneratingSummary = false
+                    summaryError = error
+                }
+            } label: {
+                Label(isGeneratingSummary ? "Generating..." : "AI Summary",
+                      systemImage: "sparkles")
+            }
+            .disabled(isGeneratingSummary || !appState.settings.hasSummaryProviderKey)
+
+            Divider()
+
             if appState.selectedCLI == .claude {
                 Menu {
                     Button {
@@ -521,16 +539,39 @@ struct TagSheet: View {
 struct BulkActionBar: View {
     @Environment(AppState.self) private var appState
     @State private var showTagMenu = false
-    
+    @State private var showBatchResults = false
+
     var body: some View {
         VStack(spacing: 0) {
+            // Batch progress indicator
+            if appState.isBatchProcessing {
+                VStack(spacing: 4) {
+                    HStack {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text("AI Summary \(appState.batchProgress)/\(appState.batchTotal)")
+                            .font(.system(size: 11, weight: .medium))
+                        Spacer()
+                        if !appState.batchErrors.isEmpty {
+                            Text("\(appState.batchErrors.count) errors")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.red)
+                        }
+                    }
+                    ProgressView(value: Double(appState.batchProgress), total: Double(max(appState.batchTotal, 1)))
+                        .tint(.accentColor)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+            }
+
             HStack(spacing: 12) {
                 Text("\(appState.selectedSessionIds.count) selected")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(.secondary)
-                
+
                 Spacer()
-                
+
                 Button {
                     appState.selectAllFilteredSessions()
                 } label: {
@@ -539,7 +580,7 @@ struct BulkActionBar: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(Color.accentColor)
-                
+
                 Button {
                     appState.clearSelection()
                 } label: {
@@ -551,7 +592,7 @@ struct BulkActionBar: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            
+
             HStack(spacing: 8) {
                 Button {
                     appState.bulkToggleFavorite()
@@ -561,7 +602,16 @@ struct BulkActionBar: View {
                 }
                 .buttonStyle(.plain)
                 .help("Toggle Favorites")
-                
+
+                Button {
+                    appState.bulkTogglePinned()
+                } label: {
+                    Image(systemName: "pin")
+                        .font(.system(size: 12))
+                }
+                .buttonStyle(.plain)
+                .help("Toggle Pin")
+
                 Menu {
                     ForEach(appState.allTags) { tag in
                         Button {
@@ -570,11 +620,11 @@ struct BulkActionBar: View {
                             Label(tag.name, systemImage: "tag")
                         }
                     }
-                    
+
                     if !appState.allTags.isEmpty {
                         Divider()
                     }
-                    
+
                     ForEach(appState.allTags) { tag in
                         Button(role: .destructive) {
                             appState.bulkRemoveTag(tag.name)
@@ -589,7 +639,17 @@ struct BulkActionBar: View {
                 .menuStyle(.borderlessButton)
                 .fixedSize()
                 .help("Manage Tags")
-                
+
+                Button {
+                    Task { await appState.batchGenerateSummaries() }
+                } label: {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 12))
+                }
+                .buttonStyle(.plain)
+                .help("AI Summary (Batch)")
+                .disabled(appState.isBatchProcessing || !appState.settings.hasSummaryProviderKey)
+
                 if appState.showArchivedSessions {
                     Button {
                         appState.bulkUnarchive()
@@ -609,12 +669,12 @@ struct BulkActionBar: View {
                     .buttonStyle(.plain)
                     .help("Archive Selected")
                 }
-                
+
                 Spacer()
             }
             .padding(.horizontal, 12)
             .padding(.bottom, 8)
-            
+
             Divider()
         }
         .background(Color.accentColor.opacity(0.1))
