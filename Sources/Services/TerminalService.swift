@@ -140,7 +140,7 @@ private func launchCmuxWorkspace(cwd: String, command: String) {
         let running = NSRunningApplication.runningApplications(withBundleIdentifier: "sh.cmux.cmux")
             + NSRunningApplication.runningApplications(withBundleIdentifier: "com.cmux.cmux")
         if let app = running.first {
-            app.activate(options: [.activateIgnoringOtherApps])
+            app.activate()
         }
     }
 }
