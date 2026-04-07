@@ -69,20 +69,74 @@ func launchCommandInTerminal(terminal: TerminalType, command: String, projectPat
 
 // MARK: - cmux helpers
 
-/// Check if cmux is running by pinging its Unix socket
-private func isCmuxRunning() -> Bool {
+/// Resolve the cmux CLI binary. A GUI app's inherited PATH does NOT include
+/// `/Applications/cmux.app/Contents/Resources/bin`, so `/usr/bin/env cmux`
+/// fails silently. We look in well-known locations first, then fall back to
+/// a login shell lookup which loads the user's full PATH.
+private func resolveCmuxBinary() -> String? {
+    let candidates = [
+        "/Applications/cmux.app/Contents/Resources/bin/cmux",
+        "/usr/local/bin/cmux",
+        "/opt/homebrew/bin/cmux",
+        "\(NSHomeDirectory())/.local/bin/cmux",
+    ]
+    for path in candidates where FileManager.default.isExecutableFile(atPath: path) {
+        return path
+    }
+
+    // Fallback: ask a login shell where cmux is
     let process = Process()
-    process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-    process.arguments = ["cmux", "ping"]
-    process.standardOutput = Pipe()
+    process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+    process.arguments = ["-l", "-c", "command -v cmux"]
+    let pipe = Pipe()
+    process.standardOutput = pipe
     process.standardError = Pipe()
     do {
         try process.run()
         process.waitUntilExit()
-        return process.terminationStatus == 0
+        guard process.terminationStatus == 0 else { return nil }
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        let path = String(data: data, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if let path = path, !path.isEmpty, FileManager.default.isExecutableFile(atPath: path) {
+            return path
+        }
     } catch {
-        return false
+        // fall through
     }
+    return nil
+}
+
+/// Run a cmux subcommand. Returns (exitCode, combinedOutput).
+@discardableResult
+private func runCmux(_ args: [String]) -> (Int32, String) {
+    guard let cmuxPath = resolveCmuxBinary() else {
+        return (-1, "cmux binary not found")
+    }
+
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: cmuxPath)
+    process.arguments = args
+
+    let pipe = Pipe()
+    process.standardOutput = pipe
+    process.standardError = pipe
+
+    do {
+        try process.run()
+        process.waitUntilExit()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        let output = String(data: data, encoding: .utf8) ?? ""
+        return (process.terminationStatus, output)
+    } catch {
+        return (-1, "\(error)")
+    }
+}
+
+/// Check if cmux is running by pinging its Unix socket
+private func isCmuxRunning() -> Bool {
+    let (status, _) = runCmux(["ping"])
+    return status == 0
 }
 
 /// Launch cmux (if needed) and create a new workspace with the given command
@@ -106,32 +160,15 @@ private func launchCmuxWorkspace(cwd: String, command: String) {
             }
         }
         if !ready {
-            print("cmux: socket did not become ready")
+            NSLog("cmux: socket did not become ready")
             return
         }
     }
 
     // Step 2: Create a new workspace with the resume command
-    let process = Process()
-    process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-    process.arguments = ["cmux", "new-workspace", "--cwd", cwd, "--command", command]
-
-    let pipe = Pipe()
-    process.standardOutput = pipe
-    process.standardError = pipe
-
-    do {
-        try process.run()
-        process.waitUntilExit()
-
-        if process.terminationStatus != 0 {
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            if let err = String(data: data, encoding: .utf8), !err.isEmpty {
-                print("cmux new-workspace error: \(err)")
-            }
-        }
-    } catch {
-        print("cmux new-workspace failed: \(error)")
+    let (status, output) = runCmux(["new-workspace", "--cwd", cwd, "--command", command])
+    if status != 0 {
+        NSLog("cmux new-workspace failed (status=\(status)): \(output)")
         return
     }
 
