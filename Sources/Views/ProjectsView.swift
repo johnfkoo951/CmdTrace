@@ -317,14 +317,10 @@ struct ProjectDetailView: View {
                             Label("Show in Finder", systemImage: "folder")
                         }
                         Divider()
-                        Button { startSession(in: .terminal) } label: {
-                            Label("New Session in Terminal", systemImage: "terminal")
-                        }
-                        Button { startSession(in: .iterm) } label: {
-                            Label("New Session in iTerm", systemImage: "terminal.fill")
-                        }
-                        Button { startSession(in: .warp) } label: {
-                            Label("New Session in Warp", systemImage: "bolt.horizontal")
+                        ForEach(TerminalType.allCases, id: \.self) { terminal in
+                            Button { startSession(in: terminal) } label: {
+                                Label("New Session in \(terminal.rawValue)", systemImage: terminal.icon)
+                            }
                         }
                     } label: {
                         Image(systemName: "ellipsis.circle")
@@ -534,45 +530,14 @@ struct ProjectDetailView: View {
     }
     
     private func startSession(in terminal: TerminalType) {
-        let path = metadata.fullPath
-        let claudeCommand = "cd '\(path)' && claude"
-        
-        let script: String
-        switch terminal {
-        case .terminal:
-            script = """
-            tell application "Terminal"
-                activate
-                do script "\(claudeCommand)"
-            end tell
-            """
-        case .iterm:
-            script = """
-            tell application "iTerm"
-                activate
-                create window with default profile
-                tell current session of current window
-                    write text "\(claudeCommand)"
-                end tell
-            end tell
-            """
-        case .warp:
-            script = """
-            tell application "Warp"
-                activate
-            end tell
-            delay 0.5
-            tell application "System Events"
-                keystroke "\(claudeCommand)"
-                keystroke return
-            end tell
-            """
-        }
-        
-        if let appleScript = NSAppleScript(source: script) {
-            var error: NSDictionary?
-            appleScript.executeAndReturnError(&error)
-        }
+        // Delegate to the unified terminal launcher so all terminals
+        // (including Ghostty/cmux with their proper CLIs) share the
+        // same, bug-fixed code path.
+        launchCommandInTerminal(
+            terminal: terminal,
+            command: "claude",
+            projectPath: metadata.fullPath
+        )
     }
 }
 

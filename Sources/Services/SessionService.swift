@@ -28,48 +28,58 @@ actor SessionService {
     // MARK: - Claude Code Sessions (JSONL format)
     
     private func loadClaudeSessions() async throws -> [Session] {
-        var sessions: [Session] = []
-        
         guard fileManager.fileExists(atPath: claudeBasePath.path) else {
-            return sessions
+            return []
         }
-        
+
         let projectDirs = try fileManager.contentsOfDirectory(
             at: claudeBasePath,
             includingPropertiesForKeys: [.isDirectoryKey],
             options: [.skipsHiddenFiles]
         )
-        
+
+        // Collect all session file URLs first
+        var sessionFiles: [(url: URL, projectDir: URL)] = []
         for projectDir in projectDirs {
             var isDir: ObjCBool = false
             guard fileManager.fileExists(atPath: projectDir.path, isDirectory: &isDir),
                   isDir.boolValue else { continue }
-            
-            // Find .jsonl files (Claude Code session format)
-            // Exclude agent-*.jsonl files (sub-agent/warmup sessions)
-            let sessionFiles = try fileManager.contentsOfDirectory(
+
+            let files = try fileManager.contentsOfDirectory(
                 at: projectDir,
-                includingPropertiesForKeys: [.contentModificationDateKey],
+                includingPropertiesForKeys: [.contentModificationDateKey, .fileSizeKey],
                 options: [.skipsHiddenFiles]
             ).filter {
                 $0.pathExtension == "jsonl" &&
                 !$0.lastPathComponent.hasPrefix("agent-")
             }
-            
-            for sessionFile in sessionFiles {
-                if let session = try? parseClaudeSession(at: sessionFile, projectDir: projectDir) {
-                    sessions.append(session)
-                }
+
+            for file in files {
+                sessionFiles.append((file, projectDir))
             }
         }
-        
-        return sessions
-            .filter { $0.messageCount > 0 }
-            .sorted { $0.lastActivity > $1.lastActivity }
+
+        // Parse sessions concurrently using TaskGroup
+        return await withTaskGroup(of: Session?.self, returning: [Session].self) { group in
+            for (file, projectDir) in sessionFiles {
+                group.addTask {
+                    try? self.parseClaudeSessionFast(at: file, projectDir: projectDir)
+                }
+            }
+
+            var sessions: [Session] = []
+            sessions.reserveCapacity(sessionFiles.count)
+            for await session in group {
+                if let s = session, s.messageCount > 0 {
+                    sessions.append(s)
+                }
+            }
+            return sessions.sorted { $0.lastActivity > $1.lastActivity }
+        }
     }
-    
-    private func parseClaudeSession(at url: URL, projectDir: URL) throws -> Session {
-        // Use streaming line reading instead of loading entire file into memory
+
+    /// Optimized session parser: reads only head + tail of file instead of full content
+    private nonisolated func parseClaudeSessionFast(at url: URL, projectDir: URL) throws -> Session {
         let fileHandle = try FileHandle(forReadingFrom: url)
         defer { try? fileHandle.close() }
 
@@ -83,61 +93,107 @@ actor SessionService {
         let isoFormatter = ISO8601DateFormatter()
         isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
 
-        // Read file in chunks and process line by line
-        let fileData = fileHandle.readDataToEndOfFile()
-        guard let content = String(data: fileData, encoding: .utf8) else {
-            throw NSError(domain: "SessionService", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to read file"])
+        // Get file size
+        let fileSize = try fileHandle.seekToEnd()
+        fileHandle.seek(toFileOffset: 0)
+
+        let headSize: UInt64 = min(fileSize, 32_768)  // First 32KB for preview + first timestamp
+        let tailSize: UInt64 = min(fileSize, 16_384)  // Last 16KB for last timestamp
+
+        // --- HEAD: Read first 32KB for preview, cwd, sessionId, firstTimestamp ---
+        let headData = fileHandle.readData(ofLength: Int(headSize))
+        if let headContent = String(data: headData, encoding: .utf8) {
+            headContent.enumerateSubstrings(in: headContent.startIndex..., options: [.byLines]) { substring, _, _, stop in
+                guard let line = substring, !line.isEmpty,
+                      let data = line.data(using: .utf8),
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+
+                if let sid = json["sessionId"] as? String, sessionId == url.deletingPathExtension().lastPathComponent {
+                    sessionId = sid
+                }
+                if cwd.isEmpty, let workDir = json["cwd"] as? String {
+                    cwd = workDir
+                }
+                if let ts = json["timestamp"] as? String, firstTimestamp == nil {
+                    firstTimestamp = isoFormatter.date(from: ts)
+                }
+                if preview.isEmpty,
+                   let msgType = json["type"] as? String, msgType == "user",
+                   let message = json["message"] as? [String: Any],
+                   let msgContent = message["content"] as? String {
+                    preview = String(msgContent.prefix(200))
+                }
+                if let msgType = json["type"] as? String, msgType == "user" || msgType == "assistant" {
+                    messageCount += 1
+                }
+
+                // Stop early if we have everything from head
+                if !preview.isEmpty && !cwd.isEmpty && firstTimestamp != nil {
+                    // Don't stop - still need message count from head portion
+                }
+            }
         }
 
-        // Use enumerateSubstrings for memory-efficient line iteration
-        content.enumerateSubstrings(in: content.startIndex..., options: [.byLines]) { substring, _, _, _ in
-            guard let line = substring, !line.isEmpty else { return }
-            guard let data = line.data(using: .utf8),
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-                return
-            }
-
-            // Get session ID from first line
-            if let sid = json["sessionId"] as? String, sessionId == url.deletingPathExtension().lastPathComponent {
-                sessionId = sid
-            }
-
-            // Get working directory
-            if cwd.isEmpty, let workDir = json["cwd"] as? String {
-                cwd = workDir
-            }
-
-            // Parse timestamp
-            if let ts = json["timestamp"] as? String {
-                if let date = isoFormatter.date(from: ts) {
-                    if firstTimestamp == nil { firstTimestamp = date }
-                    lastTimestamp = date
+        // --- MIDDLE: Fast line count for message count (if file is larger than head) ---
+        if fileSize > headSize {
+            // Count message-type lines in the remaining content
+            let midStart = headSize
+            let midEnd = fileSize > tailSize ? fileSize - tailSize : fileSize
+            if midEnd > midStart {
+                fileHandle.seek(toFileOffset: midStart)
+                let midData = fileHandle.readData(ofLength: Int(midEnd - midStart))
+                if let midContent = String(data: midData, encoding: .utf8) {
+                    // Fast counting: check for "type":"user" or "type":"assistant" substrings
+                    midContent.enumerateSubstrings(in: midContent.startIndex..., options: [.byLines]) { substring, _, _, _ in
+                        guard let line = substring, !line.isEmpty else { return }
+                        if line.contains("\"type\":\"user\"") || line.contains("\"type\":\"assistant\"") {
+                            messageCount += 1
+                        }
+                    }
                 }
             }
 
-            // Get message content for preview
-            if preview.isEmpty,
-               let msgType = json["type"] as? String, msgType == "user",
-               let message = json["message"] as? [String: Any],
-               let msgContent = message["content"] as? String {
-                preview = String(msgContent.prefix(200))
-            }
-
-            // Count messages (user and assistant)
-            if let msgType = json["type"] as? String, msgType == "user" || msgType == "assistant" {
-                messageCount += 1
+            // --- TAIL: Read last 16KB for lastTimestamp ---
+            let tailStart = fileSize > tailSize ? fileSize - tailSize : 0
+            if tailStart > headSize {
+                fileHandle.seek(toFileOffset: tailStart)
+                let tailData = fileHandle.readData(ofLength: Int(tailSize))
+                if let tailContent = String(data: tailData, encoding: .utf8) {
+                    tailContent.enumerateSubstrings(in: tailContent.startIndex..., options: [.byLines]) { substring, _, _, _ in
+                        guard let line = substring, !line.isEmpty else { return }
+                        if line.contains("\"type\":\"user\"") || line.contains("\"type\":\"assistant\"") {
+                            messageCount += 1
+                        }
+                        guard let data = line.data(using: .utf8),
+                              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                              let ts = json["timestamp"] as? String,
+                              let date = isoFormatter.date(from: ts) else { return }
+                        lastTimestamp = date
+                    }
+                }
             }
         }
-        
-        // Extract project name from directory
-        // Dynamically detect and remove user home path prefix (e.g., "-Users-username-")
+
+        // If file was small enough to read entirely in head, last timestamp may already be set
+        if lastTimestamp == nil {
+            // Re-scan head for last timestamp
+            if let headContent = String(data: headData, encoding: .utf8) {
+                headContent.enumerateSubstrings(in: headContent.startIndex..., options: [.byLines]) { substring, _, _, _ in
+                    guard let line = substring, !line.isEmpty,
+                          let data = line.data(using: .utf8),
+                          let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                          let ts = json["timestamp"] as? String,
+                          let date = isoFormatter.date(from: ts) else { return }
+                    lastTimestamp = date
+                }
+            }
+        }
+
         let username = NSUserName()
         let projectName = projectDir.lastPathComponent
             .replacingOccurrences(of: "-Users-\(username)-", with: "")
             .replacingOccurrences(of: "-", with: "/")
 
-        // Create unique ID by combining project folder and session ID
-        // This prevents duplicate IDs when same session exists in multiple projects
         let uniqueId = "\(projectDir.lastPathComponent)/\(sessionId)"
 
         return Session(
@@ -254,8 +310,107 @@ actor SessionService {
         return ""
     }
     
+    // MARK: - Tool Detail Extraction
+
+    /// Extracts human-readable detail from tool_use input for display in conversation
+    private static func extractToolDetail(name: String, input: [String: Any]?) -> String {
+        guard let input = input else { return "[Tool: \(name)]" }
+
+        switch name {
+        // File operations
+        case "Read":
+            if let path = input["file_path"] as? String {
+                let file = (path as NSString).lastPathComponent
+                let dir = ((path as NSString).deletingLastPathComponent as NSString).lastPathComponent
+                if let offset = input["offset"] as? Int, let limit = input["limit"] as? Int {
+                    return "[Tool: Read] \(dir)/\(file) (lines \(offset)-\(offset+limit))"
+                }
+                return "[Tool: Read] \(dir)/\(file)"
+            }
+
+        case "Write":
+            if let path = input["file_path"] as? String {
+                let file = (path as NSString).lastPathComponent
+                let dir = ((path as NSString).deletingLastPathComponent as NSString).lastPathComponent
+                let lines = (input["content"] as? String)?.components(separatedBy: "\n").count ?? 0
+                return "[Tool: Write] \(dir)/\(file) (\(lines) lines)"
+            }
+
+        case "Edit":
+            if let path = input["file_path"] as? String {
+                let file = (path as NSString).lastPathComponent
+                let oldStr = input["old_string"] as? String ?? ""
+                let preview = String(oldStr.prefix(40)).replacingOccurrences(of: "\n", with: "↵")
+                return "[Tool: Edit] \(file) → \"\(preview)...\""
+            }
+
+        // Search
+        case "Grep":
+            let pattern = input["pattern"] as? String ?? ""
+            let path = (input["path"] as? String).map { ($0 as NSString).lastPathComponent } ?? ""
+            return "[Tool: Grep] \"\(pattern)\" in \(path)"
+
+        case "Glob":
+            let pattern = input["pattern"] as? String ?? ""
+            return "[Tool: Glob] \(pattern)"
+
+        // Execution
+        case "Bash":
+            let cmd = input["command"] as? String ?? ""
+            let firstLine = cmd.components(separatedBy: "\n").first ?? cmd
+            let preview = firstLine.count > 80 ? String(firstLine.prefix(77)) + "..." : firstLine
+            return "[Tool: Bash] $ \(preview)"
+
+        // Web
+        case "WebFetch":
+            let url = input["url"] as? String ?? ""
+            return "[Tool: WebFetch] \(url)"
+
+        case "WebSearch":
+            let query = input["query"] as? String ?? ""
+            return "[Tool: WebSearch] \"\(query)\""
+
+        // Task management
+        case "TodoWrite", "TaskCreate":
+            let todos = input["todos"] as? [[String: Any]]
+            if let first = todos?.first, let content = first["content"] as? String {
+                return "[Tool: \(name)] \(String(content.prefix(60)))"
+            }
+            if let subject = input["subject"] as? String {
+                return "[Tool: \(name)] \(subject)"
+            }
+
+        // Agent
+        case "Agent":
+            let desc = input["description"] as? String ?? ""
+            let agentType = input["subagent_type"] as? String
+            if let t = agentType {
+                return "[Tool: Agent] \(t) — \(desc)"
+            }
+            return "[Tool: Agent] \(desc)"
+
+        // Skill
+        case "Skill":
+            let skill = input["skill"] as? String ?? input["name"] as? String ?? ""
+            return "[Tool: Skill] /\(skill)"
+
+        // MCP tools
+        default:
+            if name.hasPrefix("mcp__") {
+                let parts = name.components(separatedBy: "__")
+                if parts.count >= 3 {
+                    let server = parts[1]
+                    let tool = parts[2]
+                    return "[MCP: \(server)] \(tool)"
+                }
+            }
+        }
+
+        return "[Tool: \(name)]"
+    }
+
     // MARK: - Load Messages
-    
+
     func loadMessages(for session: Session, agent: AgentType) async throws -> [Message] {
         switch agent {
         case .claude:
@@ -312,7 +467,8 @@ actor SessionService {
                         } else if type == "tool_use" {
                             isToolUse = true
                             if let toolName = item["name"] as? String {
-                                msgContent += "[Tool: \(toolName)]"
+                                let detail = Self.extractToolDetail(name: toolName, input: item["input"] as? [String: Any])
+                                msgContent += detail
                             }
                         }
                     }

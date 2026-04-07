@@ -48,6 +48,8 @@ struct DetailView: View {
             ConfigurationView()
         case .interaction:
             InteractionView()
+        case .features:
+            ClaudeCodeFeaturesView()
         }
     }
 }

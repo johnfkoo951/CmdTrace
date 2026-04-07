@@ -17,9 +17,12 @@ struct CmdTraceApp: App {
                         appState.saveUserDataNow() // Flush pending saves on app deactivate
                     }
                 }
+                .task {
+                    await appState.loadClaudeConfig()
+                }
         }
         .windowStyle(.automatic)
-        .defaultSize(width: 1200, height: 800)
+        .defaultSize(width: 1440, height: 900)
         .handlesExternalEvents(matching: ["cmdtrace"])
         .commands {
             CommandGroup(replacing: .newItem) { }
@@ -53,6 +56,11 @@ struct CmdTraceApp: App {
                     appState.selectedTab = .interaction
                 }
                 .keyboardShortcut("3", modifiers: .command)
+
+                Button("Features") {
+                    appState.selectedTab = .features
+                }
+                .keyboardShortcut("4", modifiers: .command)
             }
         }
         

@@ -6,17 +6,30 @@ import Observation
 enum AppTab: String, CaseIterable {
     case sessions = "Sessions"
     case projects = "Projects"
+    case features = "Features"
     case dashboard = "Dashboard"
     case configuration = "Configuration"
     case interaction = "Interaction"
-    
+
     var icon: String {
         switch self {
         case .sessions: return "bubble.left.and.bubble.right"
         case .projects: return "folder"
+        case .features: return "cpu"
         case .dashboard: return "chart.bar"
         case .configuration: return "gearshape.2"
         case .interaction: return "sparkles"
+        }
+    }
+
+    var shortLabel: String {
+        switch self {
+        case .sessions: return "Sessions"
+        case .projects: return "Projects"
+        case .features: return "Features"
+        case .dashboard: return "Stats"
+        case .configuration: return "Config"
+        case .interaction: return "AI"
         }
     }
 }
@@ -53,8 +66,32 @@ enum AIProvider: String, CaseIterable, Codable, Equatable {
     case grok = "Grok"
 }
 
-enum TerminalType {
-    case terminal, iterm, warp
+enum TerminalType: String, CaseIterable, Codable {
+    case terminal = "Terminal"
+    case iterm = "iTerm2"
+    case warp = "Warp"
+    case ghostty = "Ghostty"
+    case cmux = "cmux"
+
+    var icon: String {
+        switch self {
+        case .terminal: return "terminal"
+        case .iterm: return "apple.terminal"
+        case .warp: return "bolt.horizontal"
+        case .ghostty: return "rectangle.split.3x1"
+        case .cmux: return "square.split.2x2"
+        }
+    }
+
+    var bypassIcon: String {
+        switch self {
+        case .terminal: return "terminal.fill"
+        case .iterm: return "apple.terminal.fill"
+        case .warp: return "bolt.horizontal.fill"
+        case .ghostty: return "rectangle.split.3x1.fill"
+        case .cmux: return "square.split.2x2.fill"
+        }
+    }
 }
 
 enum TagSortMode: String, CaseIterable, Codable, Equatable {
@@ -300,10 +337,15 @@ final class AppState {
     // Project Metadata
     var projectMetadata: [String: ProjectMetadata] = [:]
     
+    // Claude Code Features
+    var claudeConfig: ClaudeConfiguration = ClaudeConfiguration()
+    var isLoadingConfig: Bool = false
+
     private var cachedSessions: [AgentType: [Session]] = [:]
     private var cacheLoadingStatus: [AgentType: Bool] = [:]
 
     private let sessionService = SessionService()
+    private let claudeConfigService = ClaudeConfigService()
     private let dataURL: URL
     private let persistence: PersistenceManager
 
@@ -735,6 +777,15 @@ final class AppState {
         saveUserData()
     }
     
+    // MARK: - Claude Code Features
+    @MainActor
+    func loadClaudeConfig() async {
+        isLoadingConfig = true
+        let projectPaths = allProjects.map { $0 }
+        claudeConfig = await claudeConfigService.loadConfiguration(projectPaths: projectPaths)
+        isLoadingConfig = false
+    }
+
     // MARK: - Summaries
     func getSummary(for sessionId: String) -> SessionSummary? {
         sessionSummaries[sessionId]

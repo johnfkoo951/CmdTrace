@@ -27,7 +27,16 @@ struct DashboardView: View {
                     StatCard(title: "Projects", value: "\(cachedUniqueProjects)", icon: "folder", color: .orange)
                     StatCard(title: "Today", value: "\(cachedTodaySessions)", icon: "sun.max", color: .yellow)
                 }
-                
+
+                if appState.selectedCLI == .claude {
+                    HStack(spacing: 16) {
+                        FeatureQuickCard(title: "Agents", count: appState.claudeConfig.agents.count, icon: "person.2", color: .purple)
+                        FeatureQuickCard(title: "Hooks", count: appState.claudeConfig.hookRules.count, icon: "link", color: .orange)
+                        FeatureQuickCard(title: "Skills", count: appState.claudeConfig.skills.count, icon: "star", color: .green)
+                        FeatureQuickCard(title: "MCP", count: appState.claudeConfig.mcpServers.count, icon: "puzzlepiece", color: .cyan)
+                    }
+                }
+
                 HStack(alignment: .top, spacing: 24) {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Activity (14 days)")

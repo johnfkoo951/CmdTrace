@@ -175,19 +175,18 @@ struct SessionRow: View {
                         .clipShape(RoundedRectangle(cornerRadius: 5))
                 }
 
-                // Time info
-                HStack(spacing: 4) {
+                // Time info (shows dates when spanning multiple days)
+                if let range = session.dateTimeRange {
+                    Text(range)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.tertiary)
+                        .fixedSize()
+                } else {
                     Text(session.shortDate)
                         .font(.system(size: 10))
                         .foregroundStyle(.tertiary)
-
-                    if let startTime = session.startTime {
-                        Text("\(startTime)→\(session.lastMessageTime)")
-                            .font(.system(size: 10))
-                            .foregroundStyle(.tertiary)
-                    }
+                        .fixedSize()
                 }
-                .fixedSize()
             }
 
             // Row 4: Tags (website-style colored pills)
@@ -279,44 +278,22 @@ struct SessionRow: View {
 
             if appState.selectedCLI == .claude {
                 Menu {
-                    Button {
-                        resumeSession(session, terminal: .terminal, bypass: false)
-                    } label: {
-                        Label("Terminal", systemImage: "terminal")
-                    }
-                    
-                    Button {
-                        resumeSession(session, terminal: .terminal, bypass: true)
-                    } label: {
-                        Label("Terminal (Bypass)", systemImage: "terminal.fill")
-                    }
-                    
-                    Divider()
-                    
-                    Button {
-                        resumeSession(session, terminal: .iterm, bypass: false)
-                    } label: {
-                        Label("iTerm2", systemImage: "apple.terminal")
-                    }
-                    
-                    Button {
-                        resumeSession(session, terminal: .iterm, bypass: true)
-                    } label: {
-                        Label("iTerm2 (Bypass)", systemImage: "apple.terminal.fill")
-                    }
-                    
-                    Divider()
-                    
-                    Button {
-                        resumeSession(session, terminal: .warp, bypass: false)
-                    } label: {
-                        Label("Warp", systemImage: "bolt.horizontal")
-                    }
-                    
-                    Button {
-                        resumeSession(session, terminal: .warp, bypass: true)
-                    } label: {
-                        Label("Warp (Bypass)", systemImage: "bolt.horizontal.fill")
+                    ForEach(TerminalType.allCases, id: \.self) { terminal in
+                        Button {
+                            executeResumeSession(session, terminal: terminal, bypass: false, cliType: appState.selectedCLI)
+                        } label: {
+                            Label(terminal.rawValue, systemImage: terminal.icon)
+                        }
+
+                        Button {
+                            executeResumeSession(session, terminal: terminal, bypass: true, cliType: appState.selectedCLI)
+                        } label: {
+                            Label("\(terminal.rawValue) (Bypass)", systemImage: terminal.bypassIcon)
+                        }
+
+                        if terminal != TerminalType.allCases.last {
+                            Divider()
+                        }
                     }
                 } label: {
                     Label("Resume Session", systemImage: "play.circle")
@@ -348,50 +325,7 @@ struct SessionRow: View {
     }
 }
 
-func resumeSession(_ session: Session, terminal: TerminalType, bypass: Bool) {
-    let command = bypass ? "claude --resume \(session.id) --dangerously-skip-permissions" : "claude --resume \(session.id)"
-    
-    let script: String
-    switch terminal {
-    case .terminal:
-        script = """
-        tell application "Terminal"
-            activate
-            do script "\(command)"
-        end tell
-        """
-    case .iterm:
-        script = """
-        tell application "iTerm2"
-            activate
-            create window with default profile
-            tell current session of current window
-                write text "\(command)"
-            end tell
-        end tell
-        """
-    case .warp:
-        script = """
-        tell application "Warp"
-            activate
-        end tell
-        delay 0.5
-        tell application "System Events"
-            tell process "Warp"
-                keystroke "t" using command down
-                delay 0.2
-                keystroke "\(command)"
-                keystroke return
-            end tell
-        end tell
-        """
-    }
-    
-    var error: NSDictionary?
-    if let scriptObject = NSAppleScript(source: script) {
-        scriptObject.executeAndReturnError(&error)
-    }
-}
+// resumeSession consolidated into executeResumeSession in TerminalService.swift
 
 // MARK: - Rename Sheet
 struct RenameSheet: View {

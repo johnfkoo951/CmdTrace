@@ -268,7 +268,20 @@ When executing CLI tools (ccusage, claude-monitor) from the GUI:
 | StatsBar Caching | Message count computed on change, not every frame | ✅ |
 | Monitor Backpressure | Prevent overlapping data loads | ✅ |
 
-### Planned (v2.5.0+)
+### Completed (v2.5.0)
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| Claude Code Features Dashboard | Agent, Hooks, Teams, Skills, Commands, Plugins, MCP visualization | ✅ |
+| cmux-style Sidebar | Vertical icon strip activity bar, notification badges | ✅ |
+| Modern Hook Parsing | settings.json hook rules (25+ event types, 4 hook types) | ✅ |
+| Agent Teams | Team grouping and teammate visualization | ✅ |
+| MCP Server Dashboard | Transport types, connection status, config display | ✅ |
+| Plugin Component Tracking | Skill/Agent/Hook counts per plugin | ✅ |
+| Features Tab (Cmd+4) | Dedicated tab for Claude Code configuration browser | ✅ |
+| Dashboard Quick Cards | Feature overview cards with navigation to Features tab | ✅ |
+
+### Planned (v2.6.0+)
 
 | Feature | Description | Priority |
 |---------|-------------|----------|
@@ -298,7 +311,7 @@ When executing CLI tools (ccusage, claude-monitor) from the GUI:
 - ~~Session loading 최적화~~ → v2.4.2에서 JSONL 파싱 개선 완료
 
 
-Current: v2.4.2
+Current: v2.5.1
 
 ### Version Management
 

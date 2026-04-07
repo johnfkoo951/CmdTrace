@@ -8,6 +8,7 @@ struct ContentView: View {
         
         NavigationSplitView {
             SidebarView()
+                .navigationSplitViewColumnWidth(min: 280, ideal: 320, max: 440)
         } detail: {
             Group {
                 switch appState.selectedTab {
@@ -15,6 +16,8 @@ struct ContentView: View {
                     SessionDetailView()
                 case .projects:
                     ProjectsView()
+                case .features:
+                    ClaudeCodeFeaturesView()
                 case .dashboard:
                     DashboardView()
                 case .configuration:
@@ -71,6 +74,8 @@ struct InspectorContent: View {
             ConfigurationInspectorPanel()
         case .interaction:
             AIInspectorPanel()
+        case .features:
+            FeaturesInspectorPanel()
         }
     }
 }

@@ -91,6 +91,26 @@ struct Session: Identifiable, Codable, Hashable {
         SessionDateFormatters.shortDate.string(from: lastActivity)
     }
 
+    /// Whether the session spans multiple days
+    var isMultiDay: Bool {
+        guard let start = firstTimestamp else { return false }
+        return !Calendar.current.isDate(start, inSameDayAs: lastActivity)
+    }
+
+    /// Smart date-time range: "4/3 19:22→4/5 12:28" if multi-day, "19:22→12:28" if same-day
+    var dateTimeRange: String? {
+        guard let start = firstTimestamp else { return nil }
+        let startTime = SessionDateFormatters.time.string(from: start)
+        let endTime = SessionDateFormatters.time.string(from: lastActivity)
+        if isMultiDay {
+            let startDate = SessionDateFormatters.shortDate.string(from: start)
+            let endDate = SessionDateFormatters.shortDate.string(from: lastActivity)
+            return "\(startDate) \(startTime)→\(endDate) \(endTime)"
+        } else {
+            return "\(startTime)→\(endTime)"
+        }
+    }
+
     /// Session ID for resume command (without project folder prefix)
     var resumeId: String {
         // Extract from fileName (e.g., "b219c46c-3d27-4bcd-84ae-666c18411ae4.jsonl" -> "b219c46c-3d27-4bcd-84ae-666c18411ae4")
